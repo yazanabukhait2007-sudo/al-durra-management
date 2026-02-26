@@ -87,7 +87,7 @@ export default function Dashboard() {
       )}
 
       <div className="mt-12 bg-white rounded-2xl p-8 shadow-sm border border-gray-100">
-        <h2 className="text-lg font-bold text-gray-800 mb-4">مرحباً بك في نظام تقييم العمال</h2>
+        <h2 className="text-lg font-bold text-gray-800 mb-4">مرحباً بك في شركة لافانت للمنتجات الغذائية</h2>
         <p className="text-gray-600 leading-relaxed max-w-3xl">
           هذا النظام يتيح لك إدارة العمال والمهام بسهولة، وتسجيل التقييمات اليومية بناءً على الأهداف المحددة لكل مهمة.
           يقوم النظام تلقائياً بحساب النسبة المئوية للإنجاز لكل عامل، ويوفر تقارير شهرية مفصلة.

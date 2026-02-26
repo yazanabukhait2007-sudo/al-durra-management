@@ -47,7 +47,7 @@ export default function Login() {
           تسجيل الدخول
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          مرحباً بك مجدداً في نظام إدارة وتقييم العمال
+          مرحباً بك مجدداً في شركة لافانت للمنتجات الغذائية
         </p>
       </div>
 

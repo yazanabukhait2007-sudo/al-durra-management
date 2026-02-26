@@ -49,7 +49,7 @@ export default function Signup() {
           إنشاء حساب جديد
         </h2>
         <p className="mt-2 text-center text-sm text-gray-600">
-          انضم إلى فريق عمل الدرة
+          انضم إلى شركة لافانت للمنتجات الغذائية
         </p>
       </div>
 

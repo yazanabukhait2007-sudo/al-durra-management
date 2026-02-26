@@ -3,6 +3,7 @@ import { Task } from "../types";
 import { Plus, Trash2 } from "lucide-react";
 
 import Logo from "../components/Logo";
+import ConfirmModal from "../components/ConfirmModal";
 
 import { fetchWithAuth } from "../utils/api";
 
@@ -11,6 +12,12 @@ export default function Tasks() {
   const [newTaskName, setNewTaskName] = useState("");
   const [newTargetQuantity, setNewTargetQuantity] = useState("");
   const [loading, setLoading] = useState(true);
+
+  const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, id: number | null, name: string}>({
+    isOpen: false,
+    id: null,
+    name: ""
+  });
 
   useEffect(() => {
     fetchTasks();
@@ -53,15 +60,15 @@ export default function Tasks() {
     }
   };
 
-  const deleteTask = async (id: number, name: string) => {
-    const isConfirmed = window.confirm(
-      `⚠️ تحذير ⚠️\n\nهل أنت متأكد من حذف المهمة "${name}"؟\n\nسيؤدي هذا الإجراء إلى حذف المهمة وجميع البيانات المرتبطة بها في التقييمات السابقة.`
-    );
-    
-    if (!isConfirmed) return;
+  const confirmDelete = (id: number, name: string) => {
+    setDeleteModal({ isOpen: true, id, name });
+  };
+
+  const executeDelete = async () => {
+    if (!deleteModal.id) return;
     
     try {
-      const res = await fetchWithAuth(`/api/tasks/${id}`, { method: "DELETE" });
+      const res = await fetchWithAuth(`/api/tasks/${deleteModal.id}`, { method: "DELETE" });
       if (res.ok) {
         fetchTasks();
       } else {
@@ -141,7 +148,7 @@ export default function Tasks() {
                   </td>
                   <td className="px-6 py-4">
                     <button
-                      onClick={() => deleteTask(task.id, task.name)}
+                      onClick={() => confirmDelete(task.id, task.name)}
                       className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
                       title="حذف"
                     >
@@ -154,6 +161,15 @@ export default function Tasks() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="حذف مهمة"
+        message={`⚠️ تحذير ⚠️\n\nهل أنت متأكد من حذف المهمة "${deleteModal.name}"؟\n\nسيؤدي هذا الإجراء إلى حذف المهمة وجميع البيانات المرتبطة بها في التقييمات السابقة.`}
+        confirmText="نعم، احذف المهمة"
+        onConfirm={executeDelete}
+        onCancel={() => setDeleteModal({ isOpen: false, id: null, name: "" })}
+      />
     </div>
   );
 }

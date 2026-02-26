@@ -6,6 +6,7 @@ import { format } from "date-fns";
 
 import Logo from "../components/Logo";
 import MonthPicker from "../components/MonthPicker";
+import ConfirmModal from "../components/ConfirmModal";
 import { fetchWithAuth } from "../utils/api";
 
 export default function Evaluations() {
@@ -13,6 +14,11 @@ export default function Evaluations() {
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(() => format(new Date(), "yyyy-MM"));
   const navigate = useNavigate();
+
+  const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, id: number | null}>({
+    isOpen: false,
+    id: null
+  });
 
   useEffect(() => {
     fetchEvaluations();
@@ -31,15 +37,22 @@ export default function Evaluations() {
     }
   };
 
-  const deleteEvaluation = async (id: number) => {
-    if (!confirm("هل أنت متأكد من حذف هذا التقييم؟")) return;
+  const confirmDelete = (id: number) => {
+    setDeleteModal({ isOpen: true, id });
+  };
+
+  const executeDelete = async () => {
+    if (!deleteModal.id) return;
     try {
-      const res = await fetchWithAuth(`/api/evaluations/${id}`, { method: "DELETE" });
+      const res = await fetchWithAuth(`/api/evaluations/${deleteModal.id}`, { method: "DELETE" });
       if (res.ok) {
         fetchEvaluations();
+      } else {
+        alert("حدث خطأ أثناء حذف التقييم.");
       }
     } catch (error) {
       console.error("Failed to delete evaluation", error);
+      alert("حدث خطأ في الاتصال.");
     }
   };
 
@@ -112,7 +125,7 @@ export default function Evaluations() {
                         <Edit className="w-5 h-5" />
                       </button>
                       <button
-                        onClick={() => deleteEvaluation(evaluation.id)}
+                        onClick={() => confirmDelete(evaluation.id)}
                         className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
                         title="حذف"
                       >
@@ -126,6 +139,15 @@ export default function Evaluations() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="حذف تقييم"
+        message="هل أنت متأكد من حذف هذا التقييم؟ لا يمكن التراجع عن هذا الإجراء."
+        confirmText="نعم، احذف التقييم"
+        onConfirm={executeDelete}
+        onCancel={() => setDeleteModal({ isOpen: false, id: null })}
+      />
     </div>
   );
 }

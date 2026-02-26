@@ -54,7 +54,7 @@ export default function MonthlyReport() {
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       
       pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
-      pdf.save(`تقرير_الدرة_${month}.pdf`);
+      pdf.save(`تقرير_لافانت_${month}.pdf`);
     } catch (error) {
       console.error("Error generating PDF", error);
     }
@@ -176,7 +176,7 @@ export default function MonthlyReport() {
         </table>
         
         <div className="mt-12 pt-4 border-t border-[#e5e7eb] text-center text-[#6b7280] text-sm">
-          تم إصدار هذا التقرير من نظام تقييم العمال - شركة الدرة
+          تم إصدار هذا التقرير من شركة لافانت للمنتجات الغذائية
         </div>
       </div>
     </div>

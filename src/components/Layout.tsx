@@ -35,7 +35,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <div className="w-full md:w-64 bg-durra-green text-white shadow-xl flex-shrink-0">
         <div className="p-6 flex flex-col items-center border-b border-white/10">
           <Logo className="mb-4 scale-90" />
-          <h1 className="text-lg font-bold text-white text-center">نظام تقييم العمال</h1>
+          <h1 className="text-lg font-bold text-white text-center">شركة لافانت للمنتجات الغذائية</h1>
         </div>
         <nav className="mt-6 px-4 space-y-2 flex-1">
           {filteredNavigation.map((item) => {

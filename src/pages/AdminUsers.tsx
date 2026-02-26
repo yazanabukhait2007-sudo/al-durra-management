@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User } from "../types";
 import { Check, X, Shield, Trash2 } from "lucide-react";
 import Logo from "../components/Logo";
+import ConfirmModal from "../components/ConfirmModal";
 import { fetchWithAuth } from "../utils/api";
 
 const AVAILABLE_PERMISSIONS = [
@@ -16,6 +17,9 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+
+  const [rejectModal, setRejectModal] = useState<{isOpen: boolean, id: number | null}>({ isOpen: false, id: null });
+  const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, id: number | null}>({ isOpen: false, id: null });
 
   useEffect(() => {
     fetchUsers();
@@ -52,31 +56,39 @@ export default function AdminUsers() {
     }
   };
 
-  const handleReject = async (id: number) => {
-    if (!confirm("هل أنت متأكد من رفض هذا المستخدم؟")) return;
+  const confirmReject = (id: number) => setRejectModal({ isOpen: true, id });
+  const executeReject = async () => {
+    if (!rejectModal.id) return;
     try {
-      const res = await fetchWithAuth(`/api/admin/users/${id}/reject`, {
+      const res = await fetchWithAuth(`/api/admin/users/${rejectModal.id}/reject`, {
         method: "PUT",
       });
       if (res.ok) {
         fetchUsers();
+      } else {
+        alert("حدث خطأ أثناء رفض المستخدم.");
       }
     } catch (error) {
       console.error("Failed to reject user", error);
+      alert("حدث خطأ في الاتصال.");
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("هل أنت متأكد من حذف هذا المستخدم نهائياً؟")) return;
+  const confirmDelete = (id: number) => setDeleteModal({ isOpen: true, id });
+  const executeDelete = async () => {
+    if (!deleteModal.id) return;
     try {
-      const res = await fetchWithAuth(`/api/admin/users/${id}`, {
+      const res = await fetchWithAuth(`/api/admin/users/${deleteModal.id}`, {
         method: "DELETE",
       });
       if (res.ok) {
         fetchUsers();
+      } else {
+        alert("حدث خطأ أثناء حذف المستخدم.");
       }
     } catch (error) {
       console.error("Failed to delete user", error);
+      alert("حدث خطأ في الاتصال.");
     }
   };
 
@@ -173,7 +185,7 @@ export default function AdminUsers() {
                       )}
                       {user.status !== "rejected" && (
                         <button
-                          onClick={() => handleReject(user.id)}
+                          onClick={() => confirmReject(user.id)}
                           className="text-orange-500 hover:text-orange-700 p-2 rounded-lg hover:bg-orange-50 transition-colors"
                           title="رفض"
                         >
@@ -181,7 +193,7 @@ export default function AdminUsers() {
                         </button>
                       )}
                       <button
-                        onClick={() => handleDelete(user.id)}
+                        onClick={() => confirmDelete(user.id)}
                         className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
                         title="حذف نهائي"
                       >
@@ -195,6 +207,24 @@ export default function AdminUsers() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmModal
+        isOpen={rejectModal.isOpen}
+        title="رفض المستخدم"
+        message="هل أنت متأكد من رفض هذا المستخدم؟ لن يتمكن من الدخول للنظام."
+        confirmText="نعم، ارفض المستخدم"
+        onConfirm={executeReject}
+        onCancel={() => setRejectModal({ isOpen: false, id: null })}
+      />
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="حذف المستخدم"
+        message="هل أنت متأكد من حذف هذا المستخدم نهائياً؟ لا يمكن التراجع عن هذا الإجراء."
+        confirmText="نعم، احذف المستخدم"
+        onConfirm={executeDelete}
+        onCancel={() => setDeleteModal({ isOpen: false, id: null })}
+      />
 
       {/* Modal for Permissions */}
       {selectedUser && (

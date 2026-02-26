@@ -55,15 +55,15 @@ export default function Workers() {
     }
   };
 
-  const deleteWorker = async (id: number, name: string) => {
-    const isConfirmed = window.confirm(
-      `⚠️ تحذير خطير ⚠️\n\nهل أنت متأكد من حذف العامل "${name}"؟\n\nسيؤدي هذا الإجراء إلى حذف العامل وجميع التقييمات والبيانات السابقة المرتبطة به نهائياً، ولن تتمكن من استرجاعها.`
-    );
-    
-    if (!isConfirmed) return;
+  const confirmDelete = (id: number, name: string) => {
+    setDeleteModal({ isOpen: true, id, name });
+  };
+
+  const executeDelete = async () => {
+    if (!deleteModal.id) return;
     
     try {
-      const res = await fetchWithAuth(`/api/workers/${id}`, { method: "DELETE" });
+      const res = await fetchWithAuth(`/api/workers/${deleteModal.id}`, { method: "DELETE" });
       if (res.ok) {
         fetchWorkers();
       } else {
