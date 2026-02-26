@@ -46,15 +46,23 @@ export default function Workers() {
     }
   };
 
-  const deleteWorker = async (id: number) => {
-    if (!confirm("هل أنت متأكد من حذف هذا العامل؟")) return;
+  const deleteWorker = async (id: number, name: string) => {
+    const isConfirmed = window.confirm(
+      `⚠️ تحذير خطير ⚠️\n\nهل أنت متأكد من حذف العامل "${name}"؟\n\nسيؤدي هذا الإجراء إلى حذف العامل وجميع التقييمات والبيانات السابقة المرتبطة به نهائياً، ولن تتمكن من استرجاعها.`
+    );
+    
+    if (!isConfirmed) return;
+    
     try {
       const res = await fetch(`/api/workers/${id}`, { method: "DELETE" });
       if (res.ok) {
         fetchWorkers();
+      } else {
+        alert("حدث خطأ أثناء حذف العامل.");
       }
     } catch (error) {
       console.error("Failed to delete worker", error);
+      alert("حدث خطأ في الاتصال.");
     }
   };
 
@@ -111,7 +119,7 @@ export default function Workers() {
                   <td className="px-6 py-4 text-sm text-gray-900 font-medium">{worker.name}</td>
                   <td className="px-6 py-4">
                     <button
-                      onClick={() => deleteWorker(worker.id)}
+                      onClick={() => deleteWorker(worker.id, worker.name)}
                       className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
                       title="حذف"
                     >

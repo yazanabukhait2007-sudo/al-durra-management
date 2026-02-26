@@ -64,19 +64,19 @@ export default function Evaluations() {
           </label>
           <div className="relative">
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <CalendarIcon className="h-5 w-5 text-gray-400" />
+              <CalendarIcon className="h-5 w-5 text-durra-green" />
             </div>
             <input
               type="month"
               value={month}
               onChange={(e) => setMonth(e.target.value)}
-              className="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+              className="w-full pl-4 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50 text-gray-700 font-medium transition-all hover:border-durra-green/50"
             />
           </div>
         </div>
         <button
           onClick={fetchEvaluations}
-          className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 flex items-center gap-2 transition-colors w-full sm:w-auto justify-center"
+          className="bg-gray-100 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-200 flex items-center gap-2 transition-colors w-full sm:w-auto justify-center font-medium"
         >
           <Search className="w-5 h-5" />
           بحث

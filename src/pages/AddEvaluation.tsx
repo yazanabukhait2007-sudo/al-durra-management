@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Worker, Task } from "../types";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { Plus, Trash2, Save, ArrowRight } from "lucide-react";
+import { Plus, Trash2, Save, ArrowRight, Calendar } from "lucide-react";
 
 import Logo from "../components/Logo";
 
@@ -126,13 +126,18 @@ export default function AddEvaluation() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 التاريخ
               </label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50"
-                required
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <Calendar className="h-5 w-5 text-durra-green" />
+                </div>
+                <input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="w-full pl-4 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50 text-gray-700 font-medium transition-all hover:border-durra-green/50"
+                  required
+                />
+              </div>
             </div>
           </div>
 

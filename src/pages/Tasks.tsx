@@ -51,15 +51,23 @@ export default function Tasks() {
     }
   };
 
-  const deleteTask = async (id: number) => {
-    if (!confirm("هل أنت متأكد من حذف هذه المهمة؟")) return;
+  const deleteTask = async (id: number, name: string) => {
+    const isConfirmed = window.confirm(
+      `⚠️ تحذير ⚠️\n\nهل أنت متأكد من حذف المهمة "${name}"؟\n\nسيؤدي هذا الإجراء إلى حذف المهمة وجميع البيانات المرتبطة بها في التقييمات السابقة.`
+    );
+    
+    if (!isConfirmed) return;
+    
     try {
       const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
       if (res.ok) {
         fetchTasks();
+      } else {
+        alert("حدث خطأ أثناء حذف المهمة.");
       }
     } catch (error) {
       console.error("Failed to delete task", error);
+      alert("حدث خطأ في الاتصال.");
     }
   };
 
@@ -131,7 +139,7 @@ export default function Tasks() {
                   </td>
                   <td className="px-6 py-4">
                     <button
-                      onClick={() => deleteTask(task.id)}
+                      onClick={() => deleteTask(task.id, task.name)}
                       className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
                       title="حذف"
                     >

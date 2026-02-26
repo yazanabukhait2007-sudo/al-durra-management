@@ -68,8 +68,30 @@ async function startServer() {
 
   app.delete("/api/workers/:id", (req, res) => {
     const { id } = req.params;
-    db.prepare("DELETE FROM workers WHERE id = ?").run(id);
-    res.json({ success: true });
+    
+    const transaction = db.transaction(() => {
+      // Find all evaluations for this worker
+      const evals = db.prepare("SELECT id FROM daily_evaluations WHERE worker_id = ?").all(id) as any[];
+      
+      // Delete task entries for those evaluations
+      for (const ev of evals) {
+        db.prepare("DELETE FROM task_entries WHERE evaluation_id = ?").run(ev.id);
+      }
+      
+      // Delete evaluations
+      db.prepare("DELETE FROM daily_evaluations WHERE worker_id = ?").run(id);
+      
+      // Delete worker
+      db.prepare("DELETE FROM workers WHERE id = ?").run(id);
+    });
+
+    try {
+      transaction();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Failed to delete worker:", err);
+      res.status(500).json({ error: "Failed to delete worker" });
+    }
   });
 
   // Tasks
@@ -91,8 +113,21 @@ async function startServer() {
 
   app.delete("/api/tasks/:id", (req, res) => {
     const { id } = req.params;
-    db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
-    res.json({ success: true });
+    
+    const transaction = db.transaction(() => {
+      // Delete task entries
+      db.prepare("DELETE FROM task_entries WHERE task_id = ?").run(id);
+      // Delete task
+      db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+    });
+
+    try {
+      transaction();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Failed to delete task:", err);
+      res.status(500).json({ error: "Failed to delete task" });
+    }
   });
 
   // Evaluations

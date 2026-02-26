@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Worker, Task } from "../types";
 import { useNavigate, useParams } from "react-router-dom";
-import { Plus, Trash2, Save, ArrowRight } from "lucide-react";
+import { Plus, Trash2, Save, ArrowRight, Calendar } from "lucide-react";
 
 import Logo from "../components/Logo";
 
@@ -149,12 +149,17 @@ export default function EditEvaluation() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 التاريخ
               </label>
-              <input
-                type="date"
-                value={date}
-                disabled
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed"
-              />
+              <div className="relative">
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                  <Calendar className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="date"
+                  value={date}
+                  disabled
+                  className="w-full pl-4 pr-11 py-3 border border-gray-300 rounded-xl bg-gray-100 text-gray-500 cursor-not-allowed font-medium"
+                />
+              </div>
             </div>
           </div>
 
