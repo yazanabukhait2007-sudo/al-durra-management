@@ -4,6 +4,8 @@ import { Plus, Trash2 } from "lucide-react";
 
 import Logo from "../components/Logo";
 
+import { fetchWithAuth } from "../utils/api";
+
 export default function Workers() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [newWorkerName, setNewWorkerName] = useState("");
@@ -15,7 +17,7 @@ export default function Workers() {
 
   const fetchWorkers = async () => {
     try {
-      const res = await fetch("/api/workers");
+      const res = await fetchWithAuth("/api/workers");
       const data = await res.json();
       setWorkers(data);
     } catch (error) {
@@ -30,7 +32,7 @@ export default function Workers() {
     if (!newWorkerName.trim()) return;
 
     try {
-      const res = await fetch("/api/workers", {
+      const res = await fetchWithAuth("/api/workers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newWorkerName }),
@@ -54,7 +56,7 @@ export default function Workers() {
     if (!isConfirmed) return;
     
     try {
-      const res = await fetch(`/api/workers/${id}`, { method: "DELETE" });
+      const res = await fetchWithAuth(`/api/workers/${id}`, { method: "DELETE" });
       if (res.ok) {
         fetchWorkers();
       } else {

@@ -1,3 +1,11 @@
+export interface User {
+  id: number;
+  username: string;
+  role: "admin" | "user";
+  permissions: string[];
+  status: "pending" | "approved" | "rejected";
+}
+
 export interface Worker {
   id: number;
   name: string;

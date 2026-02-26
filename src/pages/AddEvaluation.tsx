@@ -6,6 +6,8 @@ import { Plus, Trash2, Save, ArrowRight, Calendar } from "lucide-react";
 
 import Logo from "../components/Logo";
 
+import { fetchWithAuth } from "../utils/api";
+
 export default function AddEvaluation() {
   const navigate = useNavigate();
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -22,12 +24,12 @@ export default function AddEvaluation() {
   }, []);
 
   const fetchWorkers = async () => {
-    const res = await fetch("/api/workers");
+    const res = await fetchWithAuth("/api/workers");
     setWorkers(await res.json());
   };
 
   const fetchTasks = async () => {
-    const res = await fetch("/api/tasks");
+    const res = await fetchWithAuth("/api/tasks");
     setTasks(await res.json());
   };
 
@@ -60,7 +62,7 @@ export default function AddEvaluation() {
     }
 
     try {
-      const res = await fetch("/api/evaluations", {
+      const res = await fetchWithAuth("/api/evaluations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

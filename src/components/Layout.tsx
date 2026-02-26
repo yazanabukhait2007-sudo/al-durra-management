@@ -1,18 +1,33 @@
 import React from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert } from "lucide-react";
 import Logo from "./Logo";
+import { useAuth } from "../context/AuthContext";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   const navigation = [
-    { name: "الرئيسية", href: "/", icon: LayoutDashboard },
-    { name: "العمال", href: "/workers", icon: Users },
-    { name: "الأعمال (المهام)", href: "/tasks", icon: ClipboardList },
-    { name: "التقييم اليومي", href: "/evaluations", icon: CalendarCheck },
-    { name: "التقرير الشهري", href: "/reports", icon: BarChart3 },
+    { name: "الرئيسية", href: "/", icon: LayoutDashboard, permission: null },
+    { name: "العمال", href: "/workers", icon: Users, permission: "manage_workers" },
+    { name: "الأعمال (المهام)", href: "/tasks", icon: ClipboardList, permission: "manage_tasks" },
+    { name: "التقييم اليومي", href: "/evaluations", icon: CalendarCheck, permission: "manage_evaluations" },
+    { name: "التقرير الشهري", href: "/reports", icon: BarChart3, permission: "view_reports" },
+    { name: "إدارة المستخدمين", href: "/admin/users", icon: ShieldAlert, permission: "manage_users" },
   ];
+
+  const filteredNavigation = navigation.filter((item) => {
+    if (!item.permission) return true;
+    if (user?.role === "admin") return true;
+    return user?.permissions.includes(item.permission);
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row" dir="rtl">
@@ -22,8 +37,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <Logo className="mb-4 scale-90" />
           <h1 className="text-lg font-bold text-white text-center">نظام تقييم العمال</h1>
         </div>
-        <nav className="mt-6 px-4 space-y-2">
-          {navigation.map((item) => {
+        <nav className="mt-6 px-4 space-y-2 flex-1">
+          {filteredNavigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
               <Link
@@ -41,6 +56,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             );
           })}
         </nav>
+        
+        <div className="p-4 border-t border-white/10">
+          <div className="flex items-center justify-between px-4 py-3 text-sm font-medium text-white/80">
+            <span className="truncate">{user?.username}</span>
+            <button
+              onClick={handleLogout}
+              className="text-red-300 hover:text-red-100 transition-colors"
+              title="تسجيل الخروج"
+            >
+              <LogOut className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Main content */}

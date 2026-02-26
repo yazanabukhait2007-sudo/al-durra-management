@@ -6,6 +6,8 @@ import { format } from "date-fns";
 
 import Logo from "../components/Logo";
 
+import { fetchWithAuth } from "../utils/api";
+
 export default function Evaluations() {
   const [evaluations, setEvaluations] = useState<DailyEvaluation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +21,7 @@ export default function Evaluations() {
   const fetchEvaluations = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/evaluations?month=${month}`);
+      const res = await fetchWithAuth(`/api/evaluations?month=${month}`);
       const data = await res.json();
       setEvaluations(data);
     } catch (error) {
@@ -32,7 +34,7 @@ export default function Evaluations() {
   const deleteEvaluation = async (id: number) => {
     if (!confirm("هل أنت متأكد من حذف هذا التقييم؟")) return;
     try {
-      const res = await fetch(`/api/evaluations/${id}`, { method: "DELETE" });
+      const res = await fetchWithAuth(`/api/evaluations/${id}`, { method: "DELETE" });
       if (res.ok) {
         fetchEvaluations();
       }

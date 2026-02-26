@@ -4,6 +4,8 @@ import { Plus, Trash2 } from "lucide-react";
 
 import Logo from "../components/Logo";
 
+import { fetchWithAuth } from "../utils/api";
+
 export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskName, setNewTaskName] = useState("");
@@ -16,7 +18,7 @@ export default function Tasks() {
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch("/api/tasks");
+      const res = await fetchWithAuth("/api/tasks");
       const data = await res.json();
       setTasks(data);
     } catch (error) {
@@ -31,7 +33,7 @@ export default function Tasks() {
     if (!newTaskName.trim() || !newTargetQuantity) return;
 
     try {
-      const res = await fetch("/api/tasks", {
+      const res = await fetchWithAuth("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -59,7 +61,7 @@ export default function Tasks() {
     if (!isConfirmed) return;
     
     try {
-      const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      const res = await fetchWithAuth(`/api/tasks/${id}`, { method: "DELETE" });
       if (res.ok) {
         fetchTasks();
       } else {
