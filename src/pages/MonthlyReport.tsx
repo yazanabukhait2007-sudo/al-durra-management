@@ -151,31 +151,31 @@ export default function MonthlyReport() {
       </div>
 
       {/* Hidden PDF Content */}
-      <div id="pdf-report-content" className="hidden bg-white p-8 w-[800px] absolute top-[-9999px] left-[-9999px]" dir="rtl">
-        <div className="flex items-center justify-between mb-8 border-b-2 border-durra-green pb-4">
+      <div id="pdf-report-content" className="hidden bg-[#ffffff] p-8 w-[800px] absolute top-[-9999px] left-[-9999px]" dir="rtl">
+        <div className="flex items-center justify-between mb-8 border-b-2 border-[#006838] pb-4">
           <div>
-            <h1 className="text-3xl font-bold text-durra-green mb-2">تقرير تقييم العمال الشهري</h1>
-            <p className="text-lg text-gray-600">شهر: {month}</p>
+            <h1 className="text-3xl font-bold text-[#006838] mb-2">تقرير تقييم العمال الشهري</h1>
+            <p className="text-lg text-[#4b5563]">شهر: {month}</p>
           </div>
           <div className="scale-125 origin-left">
-            <Logo />
+            <Logo noShadow={true} />
           </div>
         </div>
 
         <table className="w-full text-right border-collapse">
           <thead>
-            <tr className="bg-durra-green text-white">
-              <th className="px-4 py-3 border border-durra-green font-bold">اسم العامل</th>
-              <th className="px-4 py-3 border border-durra-green font-bold">أيام العمل</th>
-              <th className="px-4 py-3 border border-durra-green font-bold">متوسط التقييم</th>
+            <tr className="bg-[#006838] text-[#ffffff]">
+              <th className="px-4 py-3 border border-[#006838] font-bold">اسم العامل</th>
+              <th className="px-4 py-3 border border-[#006838] font-bold">أيام العمل</th>
+              <th className="px-4 py-3 border border-[#006838] font-bold">متوسط التقييم</th>
             </tr>
           </thead>
           <tbody>
             {report.map((item, index) => (
-              <tr key={item.worker_id} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                <td className="px-4 py-3 border border-gray-200 font-medium">{item.worker_name}</td>
-                <td className="px-4 py-3 border border-gray-200">{item.days_worked} أيام</td>
-                <td className="px-4 py-3 border border-gray-200 font-bold" dir="ltr" style={{ textAlign: "right" }}>
+              <tr key={item.worker_id} className={index % 2 === 0 ? "bg-[#f9fafb]" : "bg-[#ffffff]"}>
+                <td className="px-4 py-3 border border-[#e5e7eb] font-medium">{item.worker_name}</td>
+                <td className="px-4 py-3 border border-[#e5e7eb]">{item.days_worked} أيام</td>
+                <td className="px-4 py-3 border border-[#e5e7eb] font-bold" dir="ltr" style={{ textAlign: "right" }}>
                   {item.average_score !== null ? `${item.average_score.toFixed(1)}%` : "لم يعمل"}
                 </td>
               </tr>
@@ -183,7 +183,7 @@ export default function MonthlyReport() {
           </tbody>
         </table>
         
-        <div className="mt-12 pt-4 border-t border-gray-200 text-center text-gray-500 text-sm">
+        <div className="mt-12 pt-4 border-t border-[#e5e7eb] text-center text-[#6b7280] text-sm">
           تم إصدار هذا التقرير من نظام تقييم العمال - شركة الدرة
         </div>
       </div>
