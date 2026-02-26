@@ -3,7 +3,7 @@ import { MonthlyReportItem } from "../types";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Download } from "lucide-react";
 import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 
 import Logo from "../components/Logo";
 
@@ -29,39 +29,33 @@ export default function MonthlyReport() {
     }
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
-    
-    // Add font for Arabic support (using a standard font or base64 if needed)
-    // For simplicity, we'll use English headers or basic text, but ideally you'd load an Arabic font.
-    // Since jsPDF default fonts don't support Arabic well without custom fonts, 
-    // we will use English headers for the PDF or simple Latin characters if Arabic fails.
-    // Let's try to use basic text.
-    doc.setFont("helvetica");
-    
-    doc.text(`Monthly Report - ${month}`, 14, 15);
-    
-    const tableColumn = ["Worker Name", "Days Worked", "Average Score"];
-    const tableRows: any[] = [];
+  const exportToPDF = async () => {
+    const element = document.getElementById("pdf-report-content");
+    if (!element) return;
 
-    report.forEach(r => {
-      const rowData = [
-        r.worker_name,
-        r.days_worked,
-        r.average_score ? r.average_score.toFixed(2) + "%" : "0%"
-      ];
-      tableRows.push(rowData);
-    });
+    try {
+      // Show the element temporarily
+      element.style.display = "block";
+      
+      const canvas = await html2canvas(element, {
+        scale: 2, // Higher resolution
+        useCORS: true,
+      });
+      
+      // Hide it again
+      element.style.display = "none";
 
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 20,
-      styles: { font: "helvetica" },
-      headStyles: { fillColor: [0, 104, 56] } // durra-green
-    });
-
-    doc.save(`Durra_Report_${month}.pdf`);
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`تقرير_الدرة_${month}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF", error);
+    }
   };
 
   return (
@@ -154,6 +148,44 @@ export default function MonthlyReport() {
             )}
           </tbody>
         </table>
+      </div>
+
+      {/* Hidden PDF Content */}
+      <div id="pdf-report-content" className="hidden bg-white p-8 w-[800px] absolute top-[-9999px] left-[-9999px]" dir="rtl">
+        <div className="flex items-center justify-between mb-8 border-b-2 border-durra-green pb-4">
+          <div>
+            <h1 className="text-3xl font-bold text-durra-green mb-2">تقرير تقييم العمال الشهري</h1>
+            <p className="text-lg text-gray-600">شهر: {month}</p>
+          </div>
+          <div className="scale-125 origin-left">
+            <Logo />
+          </div>
+        </div>
+
+        <table className="w-full text-right border-collapse">
+          <thead>
+            <tr className="bg-durra-green text-white">
+              <th className="px-4 py-3 border border-durra-green font-bold">اسم العامل</th>
+              <th className="px-4 py-3 border border-durra-green font-bold">أيام العمل</th>
+              <th className="px-4 py-3 border border-durra-green font-bold">متوسط التقييم</th>
+            </tr>
+          </thead>
+          <tbody>
+            {report.map((item, index) => (
+              <tr key={item.worker_id} className={index % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                <td className="px-4 py-3 border border-gray-200 font-medium">{item.worker_name}</td>
+                <td className="px-4 py-3 border border-gray-200">{item.days_worked} أيام</td>
+                <td className="px-4 py-3 border border-gray-200 font-bold" dir="ltr" style={{ textAlign: "right" }}>
+                  {item.average_score !== null ? `${item.average_score.toFixed(1)}%` : "لم يعمل"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        
+        <div className="mt-12 pt-4 border-t border-gray-200 text-center text-gray-500 text-sm">
+          تم إصدار هذا التقرير من نظام تقييم العمال - شركة الدرة
+        </div>
       </div>
     </div>
   );
