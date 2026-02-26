@@ -93,7 +93,7 @@ export default function Tasks() {
             type="number"
             value={newTargetQuantity}
             onChange={(e) => setNewTargetQuantity(e.target.value)}
-            placeholder="الهدف (التارقت)..."
+            placeholder="الهدف..."
             className="w-full md:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
             required
             min="1"
@@ -114,7 +114,7 @@ export default function Tasks() {
             <tr>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">الرقم</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">المهمة</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">الهدف (التارقت)</th>
+              <th className="px-6 py-4 text-sm font-semibold text-gray-600">الهدف</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-24">إجراء</th>
             </tr>
           </thead>

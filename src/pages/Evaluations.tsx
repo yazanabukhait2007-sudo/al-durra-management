@@ -89,18 +89,17 @@ export default function Evaluations() {
             <tr>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">التاريخ</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">العامل</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">التقييم اليومي (من 100)</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-32">إجراء</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
+                <td colSpan={3} className="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
               </tr>
             ) : evaluations.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">لا يوجد تقييمات مسجلة في هذا الشهر</td>
+                <td colSpan={3} className="px-6 py-8 text-center text-gray-500">لا يوجد تقييمات مسجلة في هذا الشهر</td>
               </tr>
             ) : (
               evaluations.map((evaluation) => (
@@ -110,22 +109,6 @@ export default function Evaluations() {
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {evaluation.worker_name}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-full max-w-[150px] bg-gray-200 rounded-full h-2.5">
-                        <div
-                          className={`h-2.5 rounded-full ${
-                            evaluation.total_score >= 80 ? 'bg-durra-green' :
-                            evaluation.total_score >= 50 ? 'bg-durra-green-light' : 'bg-durra-red'
-                          }`}
-                          style={{ width: `${Math.min(evaluation.total_score, 100)}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-bold text-gray-700">
-                        {evaluation.total_score.toFixed(1)}%
-                      </span>
-                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
