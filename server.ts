@@ -144,6 +144,7 @@ async function startServer() {
         id: user.id,
         username: user.username,
         role: user.role,
+        status: user.status,
         permissions: JSON.parse(user.permissions || '[]')
       }
     });
