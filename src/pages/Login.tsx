@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { motion } from "motion/react";
 import Logo from "../components/Logo";
 import { User, Lock, LogIn, Eye, EyeOff } from "lucide-react";
 
@@ -43,7 +44,14 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden" dir="rtl">
+    <motion.div 
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 20 }}
+      transition={{ duration: 0.3 }}
+      className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-200 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden" 
+      dir="rtl"
+    >
       {/* Decorative Background Elements */}
       <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-durra-green/10 rounded-full blur-3xl pointer-events-none"></div>
       <div className="absolute bottom-[-10%] left-[-5%] w-96 h-96 bg-durra-green-light/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -151,6 +159,6 @@ export default function Login() {
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

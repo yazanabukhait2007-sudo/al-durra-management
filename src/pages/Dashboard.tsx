@@ -28,9 +28,9 @@ export default function Dashboard() {
         fetchWithAuth(`/api/evaluations?month=${today.substring(0, 7)}`)
       ]);
 
-      const workers = await workersRes.json();
-      const tasks = await tasksRes.json();
-      const evals = await evalsRes.json();
+      const workers = workersRes.ok ? await workersRes.json() : [];
+      const tasks = tasksRes.ok ? await tasksRes.json() : [];
+      const evals = evalsRes.ok ? await evalsRes.json() : [];
 
       const todayEvals = evals.filter((e: any) => e.date === today);
       const avgScore = todayEvals.length > 0
@@ -38,10 +38,10 @@ export default function Dashboard() {
         : 0;
 
       setStats({
-        workers: workers.length,
-        tasks: tasks.length,
-        evaluationsToday: todayEvals.length,
-        averageScoreToday: avgScore,
+        workers: workers.length || 0,
+        tasks: tasks.length || 0,
+        evaluationsToday: todayEvals.length || 0,
+        averageScoreToday: avgScore || 0,
       });
     } catch (error) {
       console.error("Failed to fetch stats", error);
