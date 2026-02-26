@@ -3,6 +3,7 @@ import { Worker } from "../types";
 import { Plus, Trash2 } from "lucide-react";
 
 import Logo from "../components/Logo";
+import ConfirmModal from "../components/ConfirmModal";
 
 import { fetchWithAuth } from "../utils/api";
 
@@ -10,6 +11,12 @@ export default function Workers() {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [newWorkerName, setNewWorkerName] = useState("");
   const [loading, setLoading] = useState(true);
+  
+  const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, id: number | null, name: string}>({
+    isOpen: false,
+    id: null,
+    name: ""
+  });
 
   useEffect(() => {
     fetchWorkers();
@@ -121,7 +128,7 @@ export default function Workers() {
                   <td className="px-6 py-4 text-sm text-gray-900 font-medium">{worker.name}</td>
                   <td className="px-6 py-4">
                     <button
-                      onClick={() => deleteWorker(worker.id, worker.name)}
+                      onClick={() => confirmDelete(worker.id, worker.name)}
                       className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
                       title="حذف"
                     >
@@ -134,6 +141,15 @@ export default function Workers() {
           </tbody>
         </table>
       </div>
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="حذف عامل"
+        message={`⚠️ تحذير خطير ⚠️\n\nهل أنت متأكد من حذف العامل "${deleteModal.name}"؟\n\nسيؤدي هذا الإجراء إلى حذف العامل وجميع التقييمات والبيانات السابقة المرتبطة به نهائياً، ولن تتمكن من استرجاعها.`}
+        confirmText="نعم، احذف العامل"
+        onConfirm={executeDelete}
+        onCancel={() => setDeleteModal({ isOpen: false, id: null, name: "" })}
+      />
     </div>
   );
 }

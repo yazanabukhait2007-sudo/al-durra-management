@@ -5,7 +5,7 @@ import { Plus, Search, Calendar as CalendarIcon, Trash2, Edit } from "lucide-rea
 import { format } from "date-fns";
 
 import Logo from "../components/Logo";
-
+import MonthPicker from "../components/MonthPicker";
 import { fetchWithAuth } from "../utils/api";
 
 export default function Evaluations() {
@@ -64,17 +64,7 @@ export default function Evaluations() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             تصفية حسب الشهر
           </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <CalendarIcon className="h-5 w-5 text-durra-green" />
-            </div>
-            <input
-              type="month"
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              className="w-full pl-4 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50 text-gray-700 font-medium transition-all hover:border-durra-green/50"
-            />
-          </div>
+          <MonthPicker value={month} onChange={setMonth} />
         </div>
         <button
           onClick={fetchEvaluations}
