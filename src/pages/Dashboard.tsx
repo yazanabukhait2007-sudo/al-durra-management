@@ -3,6 +3,7 @@ import { Users, ClipboardList, CalendarCheck, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import Logo from "../components/Logo";
+import { fetchWithAuth } from "../utils/api";
 
 export default function Dashboard() {
   const [stats, setStats] = useState({
@@ -22,9 +23,9 @@ export default function Dashboard() {
       const today = format(new Date(), "yyyy-MM-dd");
       
       const [workersRes, tasksRes, evalsRes] = await Promise.all([
-        fetch("/api/workers"),
-        fetch("/api/tasks"),
-        fetch(`/api/evaluations?month=${today.substring(0, 7)}`)
+        fetchWithAuth("/api/workers"),
+        fetchWithAuth("/api/tasks"),
+        fetchWithAuth(`/api/evaluations?month=${today.substring(0, 7)}`)
       ]);
 
       const workers = await workersRes.json();

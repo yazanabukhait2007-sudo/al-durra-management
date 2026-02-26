@@ -7,6 +7,8 @@ import html2canvas from "html2canvas";
 
 import Logo from "../components/Logo";
 
+import { fetchWithAuth } from "../utils/api";
+
 export default function MonthlyReport() {
   const [report, setReport] = useState<MonthlyReportItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +21,7 @@ export default function MonthlyReport() {
   const fetchReport = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/reports/monthly?month=${month}`);
+      const res = await fetchWithAuth(`/api/reports/monthly?month=${month}`);
       const data = await res.json();
       setReport(data);
     } catch (error) {

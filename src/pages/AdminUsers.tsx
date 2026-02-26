@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { User } from "../types";
 import { Check, X, Shield, Trash2 } from "lucide-react";
 import Logo from "../components/Logo";
+import { fetchWithAuth } from "../utils/api";
 
 const AVAILABLE_PERMISSIONS = [
   { id: "manage_workers", label: "إدارة العمال (إضافة/حذف)" },
@@ -22,9 +23,7 @@ export default function AdminUsers() {
 
   const fetchUsers = async () => {
     try {
-      const res = await fetch("/api/admin/users", {
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-      });
+      const res = await fetchWithAuth("/api/admin/users");
       if (res.ok) {
         setUsers(await res.json());
       }
@@ -37,11 +36,10 @@ export default function AdminUsers() {
 
   const handleApprove = async (id: number) => {
     try {
-      const res = await fetch(`/api/admin/users/${id}/approve`, {
+      const res = await fetchWithAuth(`/api/admin/users/${id}/approve`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token")}`,
         },
         body: JSON.stringify({ permissions: selectedPermissions }),
       });
@@ -57,9 +55,8 @@ export default function AdminUsers() {
   const handleReject = async (id: number) => {
     if (!confirm("هل أنت متأكد من رفض هذا المستخدم؟")) return;
     try {
-      const res = await fetch(`/api/admin/users/${id}/reject`, {
+      const res = await fetchWithAuth(`/api/admin/users/${id}/reject`, {
         method: "PUT",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       if (res.ok) {
         fetchUsers();
@@ -72,9 +69,8 @@ export default function AdminUsers() {
   const handleDelete = async (id: number) => {
     if (!confirm("هل أنت متأكد من حذف هذا المستخدم نهائياً؟")) return;
     try {
-      const res = await fetch(`/api/admin/users/${id}`, {
+      const res = await fetchWithAuth(`/api/admin/users/${id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
       });
       if (res.ok) {
         fetchUsers();

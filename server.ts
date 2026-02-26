@@ -55,15 +55,19 @@ db.exec(`
 
 // Create default admin if not exists
 const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+const hashedAdmin = bcrypt.hashSync("Durra@2026", 10);
+
 if (!adminExists) {
-  const hashed = bcrypt.hashSync("admin123", 10);
   db.prepare("INSERT INTO users (username, password, status, role, permissions) VALUES (?, ?, ?, ?, ?)").run(
     "admin", 
-    hashed, 
+    hashedAdmin, 
     "approved", 
     "admin", 
     JSON.stringify(["manage_workers", "manage_tasks", "manage_evaluations", "view_reports", "manage_users"])
   );
+} else {
+  // Force update password to a stronger one to avoid browser warnings
+  db.prepare("UPDATE users SET password = ? WHERE username = 'admin'").run(hashedAdmin);
 }
 
 // Auth Middleware
