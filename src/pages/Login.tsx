@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { motion } from "motion/react";
@@ -23,25 +25,31 @@ export default function Login() {
     e.preventDefault();
     setError("");
 
-    try {
-      const res = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        try {
+      const auth = getAuth();
+      // تسجيل الدخول عبر Firebase باستخدام البريد وكلمة المرور
+      const userCredential = await signInWithEmailAndPassword(auth, username, password);
+      const user = userCredential.user;
+      
+      // تحديث حالة تسجيل الدخول في التطبيق
+      login("dummy-token", { 
+        id: user.uid, 
+        username: user.email || "", 
+        role: "admin", // أو القيمة الافتراضية لديك
+        status: "approved" 
       });
-
-      const data = await res.json();
-
-      if (res.ok) {
-        login(data.token, data.user);
-        navigate("/");
-      } else {
-        setError(data.error || "فشل تسجيل الدخول");
-      }
-    } catch (err) {
+      
+      navigate("/");
+    } catch (err: any) {
       console.error("Login error:", err);
-      setError("حدث خطأ في الاتصال");
+      // إظهار رسالة خطأ حقيقية بناءً على رد Firebase
+      if (err.code === "auth/wrong-password" || err.code === "auth/user-not-found" || err.code === "auth/invalid-credential") {
+        setError("اسم المستخدم أو كلمة المرور غير صحيحة");
+      } else {
+        setError("حدث خطأ في الاتصال بخدمة Firebase");
+      }
     }
+
   };
 
   return (
