@@ -1,3 +1,0 @@
-yas
-/zid
-downloads

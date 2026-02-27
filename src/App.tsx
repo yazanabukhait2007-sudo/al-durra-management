@@ -5,7 +5,7 @@
 
 import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { AnimatePresence } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
@@ -51,51 +51,53 @@ function AnimatedRoutes() {
   const location = useLocation();
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-        
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Layout><Dashboard /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/workers" element={
-          <ProtectedRoute permission="manage_workers">
-            <Layout><Workers /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/tasks" element={
-          <ProtectedRoute permission="manage_tasks">
-            <Layout><Tasks /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/evaluations" element={
-          <ProtectedRoute permission="manage_evaluations">
-            <Layout><Evaluations /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/evaluations/new" element={
-          <ProtectedRoute permission="manage_evaluations">
-            <Layout><AddEvaluation /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/evaluations/edit/:id" element={
-          <ProtectedRoute permission="manage_evaluations">
-            <Layout><EditEvaluation /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/reports" element={
-          <ProtectedRoute permission="view_reports">
-            <Layout><MonthlyReport /></Layout>
-          </ProtectedRoute>
-        } />
-        <Route path="/admin/users" element={
-          <ProtectedRoute permission="manage_users">
-            <Layout><AdminUsers /></Layout>
-          </ProtectedRoute>
-        } />
-      </Routes>
+      <motion.div key={location.pathname} className="w-full h-full">
+        <Routes location={location}>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          
+          <Route path="/" element={
+            <ProtectedRoute>
+              <Layout><Dashboard /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/workers" element={
+            <ProtectedRoute permission="manage_workers">
+              <Layout><Workers /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/tasks" element={
+            <ProtectedRoute permission="manage_tasks">
+              <Layout><Tasks /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/evaluations" element={
+            <ProtectedRoute permission="manage_evaluations">
+              <Layout><Evaluations /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/evaluations/new" element={
+            <ProtectedRoute permission="manage_evaluations">
+              <Layout><AddEvaluation /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/evaluations/edit/:id" element={
+            <ProtectedRoute permission="manage_evaluations">
+              <Layout><EditEvaluation /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/reports" element={
+            <ProtectedRoute permission="view_reports">
+              <Layout><MonthlyReport /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/users" element={
+            <ProtectedRoute permission="manage_users">
+              <Layout><AdminUsers /></Layout>
+            </ProtectedRoute>
+          } />
+        </Routes>
+      </motion.div>
     </AnimatePresence>
   );
 }
