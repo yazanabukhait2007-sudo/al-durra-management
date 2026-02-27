@@ -118,36 +118,41 @@ async function startServer() {
   });
 
   app.post("/api/auth/login", (req, res) => {
-    const { username, password } = req.body;
-    const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username) as any;
-    
-    if (!user || !bcrypt.compareSync(password, user.password)) {
-      return res.status(401).json({ error: "Invalid username or password" });
-    }
-
-    if (user.status === 'pending') {
-      return res.status(403).json({ error: "Your account is pending admin approval." });
-    }
-    if (user.status === 'rejected') {
-      return res.status(403).json({ error: "Your account has been rejected." });
-    }
-
-    const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role, permissions: user.permissions },
-      JWT_SECRET,
-      { expiresIn: "24h" }
-    );
-
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        status: user.status,
-        permissions: JSON.parse(user.permissions || '[]')
+    try {
+      const { username, password } = req.body;
+      const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username) as any;
+      
+      if (!user || !bcrypt.compareSync(password, user.password)) {
+        return res.status(401).json({ error: "Invalid username or password" });
       }
-    });
+
+      if (user.status === 'pending') {
+        return res.status(403).json({ error: "Your account is pending admin approval." });
+      }
+      if (user.status === 'rejected') {
+        return res.status(403).json({ error: "Your account has been rejected." });
+      }
+
+      const token = jwt.sign(
+        { id: user.id, username: user.username, role: user.role, permissions: user.permissions },
+        JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+
+      res.json({
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          status: user.status,
+          permissions: JSON.parse(user.permissions || '[]')
+        }
+      });
+    } catch (err) {
+      console.error("Login route error:", err);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   app.get("/api/auth/me", authenticateToken, (req: any, res) => {
@@ -465,9 +470,14 @@ async function startServer() {
     });
   }
 
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("Global error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  });
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
 
-startServer();
+startServer().catch(console.error);

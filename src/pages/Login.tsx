@@ -39,6 +39,7 @@ export default function Login() {
         setError(data.error || "فشل تسجيل الدخول");
       }
     } catch (err) {
+      console.error("Login error:", err);
       setError("حدث خطأ في الاتصال");
     }
   };

@@ -43,6 +43,7 @@ export default function Signup() {
         setError(data.error || "فشل إنشاء الحساب");
       }
     } catch (err) {
+      console.error("Signup error:", err);
       setError("حدث خطأ في الاتصال");
     }
   };
