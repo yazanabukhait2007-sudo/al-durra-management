@@ -14,7 +14,7 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user && user.status === "approved") {
+    if (user) {
       navigate("/");
     }
   }, [user, navigate]);

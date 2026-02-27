@@ -3,19 +3,20 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { motion } from "motion/react";
 import Logo from "../components/Logo";
-import { User, Lock, UserPlus, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { User, Lock, UserPlus, CheckCircle2, Eye, EyeOff, Mail } from "lucide-react";
 
 export default function Signup() {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
-  const { user } = useAuth();
+  const { user, login } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user && user.status === "approved") {
+    if (user) {
       navigate("/");
     }
   }, [user, navigate]);
@@ -29,16 +30,17 @@ export default function Signup() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, email, password }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
         setSuccess(true);
+        login(data.token, data.user);
         setTimeout(() => {
-          navigate("/login");
-        }, 4000);
+          navigate("/");
+        }, 2000);
       } else {
         setError(data.error || "فشل إنشاء الحساب");
       }
@@ -95,6 +97,25 @@ export default function Signup() {
                 </div>
               )}
               
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  البريد الإلكتروني
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="block w-full pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white outline-none"
+                    placeholder="أدخل بريدك الإلكتروني..."
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">
                   اسم المستخدم

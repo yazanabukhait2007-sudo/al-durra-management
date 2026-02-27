@@ -117,6 +117,7 @@ export default function AdminUsers() {
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">اسم المستخدم</th>
+              <th className="px-6 py-4 text-sm font-semibold text-gray-600">البريد الإلكتروني</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">الحالة</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">الصلاحيات</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-48">إجراء</th>
@@ -125,16 +126,17 @@ export default function AdminUsers() {
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">لا يوجد مستخدمين</td>
+                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">لا يوجد مستخدمين</td>
               </tr>
             ) : (
               users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm text-gray-900 font-medium">{user.username}</td>
+                  <td className="px-6 py-4 text-sm text-gray-500">{user.email || "-"}</td>
                   <td className="px-6 py-4 text-sm">
                     {user.status === "pending" && (
                       <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full font-medium text-xs">قيد الانتظار</span>

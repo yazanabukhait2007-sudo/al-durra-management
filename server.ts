@@ -46,6 +46,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'pending',
     role TEXT NOT NULL DEFAULT 'user',
@@ -58,16 +59,17 @@ const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").g
 const hashedAdmin = bcrypt.hashSync("Durra@2026", 10);
 
 if (!adminExists) {
-  db.prepare("INSERT INTO users (username, password, status, role, permissions) VALUES (?, ?, ?, ?, ?)").run(
+  db.prepare("INSERT INTO users (username, email, password, status, role, permissions) VALUES (?, ?, ?, ?, ?, ?)").run(
     "admin", 
+    "admin@example.com",
     hashedAdmin, 
     "approved", 
     "admin", 
     JSON.stringify(["manage_workers", "manage_tasks", "manage_evaluations", "view_reports", "manage_users"])
   );
 } else {
-  // Force update password to a stronger one to avoid browser warnings
-  db.prepare("UPDATE users SET password = ? WHERE username = 'admin'").run(hashedAdmin);
+  // Force update password and email to a stronger one to avoid browser warnings
+  db.prepare("UPDATE users SET password = ?, email = ? WHERE username = 'admin'").run(hashedAdmin, "admin@example.com");
 }
 
 // Auth Middleware
@@ -105,15 +107,34 @@ async function startServer() {
 
   // Auth
   app.post("/api/auth/signup", (req, res) => {
-    const { username, password } = req.body;
-    if (!username || !password) return res.status(400).json({ error: "Username and password are required" });
+    const { username, email, password } = req.body;
+    if (!username || !email || !password) return res.status(400).json({ error: "Username, email, and password are required" });
     
     try {
       const hashed = bcrypt.hashSync(password, 10);
-      db.prepare("INSERT INTO users (username, password) VALUES (?, ?)").run(username, hashed);
-      res.json({ success: true, message: "Account created successfully. Please wait for admin approval." });
+      db.prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)").run(username, email, hashed);
+      
+      const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username) as any;
+      const token = jwt.sign(
+        { id: user.id, username: user.username, role: user.role, permissions: user.permissions },
+        JWT_SECRET,
+        { expiresIn: "24h" }
+      );
+
+      res.json({
+        message: "Account created successfully.",
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+          permissions: JSON.parse(user.permissions)
+        }
+      });
     } catch (err) {
-      res.status(400).json({ error: "Username already exists" });
+      res.status(400).json({ error: "Username or email already exists" });
     }
   });
 
@@ -126,9 +147,6 @@ async function startServer() {
         return res.status(401).json({ error: "Invalid username or password" });
       }
 
-      if (user.status === 'pending') {
-        return res.status(403).json({ error: "Your account is pending admin approval." });
-      }
       if (user.status === 'rejected') {
         return res.status(403).json({ error: "Your account has been rejected." });
       }
@@ -144,6 +162,7 @@ async function startServer() {
         user: {
           id: user.id,
           username: user.username,
+          email: user.email,
           role: user.role,
           status: user.status,
           permissions: JSON.parse(user.permissions || '[]')
@@ -156,12 +175,13 @@ async function startServer() {
   });
 
   app.get("/api/auth/me", authenticateToken, (req: any, res) => {
-    const user = db.prepare("SELECT id, username, role, permissions, status FROM users WHERE id = ?").get(req.user.id) as any;
+    const user = db.prepare("SELECT id, username, email, role, permissions, status FROM users WHERE id = ?").get(req.user.id) as any;
     if (!user) return res.status(404).json({ error: "User not found" });
     
     res.json({
       id: user.id,
       username: user.username,
+      email: user.email,
       role: user.role,
       permissions: JSON.parse(user.permissions || '[]'),
       status: user.status
@@ -170,7 +190,7 @@ async function startServer() {
 
   // Admin Users Management
   app.get("/api/admin/users", authenticateToken, requirePermission("manage_users"), (req, res) => {
-    const users = db.prepare("SELECT id, username, status, role, permissions FROM users WHERE role != 'admin'").all();
+    const users = db.prepare("SELECT id, username, email, status, role, permissions FROM users WHERE role != 'admin'").all();
     res.json(users.map((u: any) => ({ ...u, permissions: JSON.parse(u.permissions || '[]') })));
   });
 
