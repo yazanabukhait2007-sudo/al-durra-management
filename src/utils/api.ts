@@ -1,12 +1,15 @@
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   try {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+    const fullUrl = `${baseUrl}${url}`;
+
     const token = localStorage.getItem("token");
     const headers = {
       ...options.headers,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
 
-    const response = await fetch(url, { ...options, headers });
+    const response = await fetch(fullUrl, { ...options, headers });
     
     if (response.status === 401 || response.status === 403) {
       // Optional: Handle unauthorized globally (e.g., clear token and redirect to login)
