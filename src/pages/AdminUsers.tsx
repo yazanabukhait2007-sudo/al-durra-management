@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { User } from "../types";
-import { Check, X, Shield, Trash2 } from "lucide-react";
+import { Shield, Trash2 } from "lucide-react";
 import Logo from "../components/Logo";
 import ConfirmModal from "../components/ConfirmModal";
 import { fetchWithAuth } from "../utils/api";
@@ -18,7 +18,6 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
 
-  const [rejectModal, setRejectModal] = useState<{isOpen: boolean, id: number | null}>({ isOpen: false, id: null });
   const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, id: number | null}>({ isOpen: false, id: null });
 
   useEffect(() => {
@@ -38,9 +37,9 @@ export default function AdminUsers() {
     }
   };
 
-  const handleApprove = async (id: number) => {
+  const handleUpdatePermissions = async (id: number) => {
     try {
-      const res = await fetchWithAuth(`/api/admin/users/${id}/approve`, {
+      const res = await fetchWithAuth(`/api/admin/users/${id}/permissions`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -52,25 +51,7 @@ export default function AdminUsers() {
         fetchUsers();
       }
     } catch (error) {
-      console.error("Failed to approve user", error);
-    }
-  };
-
-  const confirmReject = (id: number) => setRejectModal({ isOpen: true, id });
-  const executeReject = async () => {
-    if (!rejectModal.id) return;
-    try {
-      const res = await fetchWithAuth(`/api/admin/users/${rejectModal.id}/reject`, {
-        method: "PUT",
-      });
-      if (res.ok) {
-        fetchUsers();
-      } else {
-        alert("حدث خطأ أثناء رفض المستخدم.");
-      }
-    } catch (error) {
-      console.error("Failed to reject user", error);
-      alert("حدث خطأ في الاتصال.");
+      console.error("Failed to update permissions", error);
     }
   };
 
@@ -100,7 +81,7 @@ export default function AdminUsers() {
     }
   };
 
-  const openApproveModal = (user: User) => {
+  const openPermissionsModal = (user: User) => {
     setSelectedUser(user);
     setSelectedPermissions(user.permissions || []);
   };
@@ -118,7 +99,6 @@ export default function AdminUsers() {
             <tr>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">اسم المستخدم</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">البريد الإلكتروني</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">الحالة</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">الصلاحيات</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-48">إجراء</th>
             </tr>
@@ -126,74 +106,39 @@ export default function AdminUsers() {
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
+                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-8 text-center text-gray-500">لا يوجد مستخدمين</td>
+                <td colSpan={4} className="px-6 py-8 text-center text-gray-500">لا يوجد مستخدمين</td>
               </tr>
             ) : (
               users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-6 py-4 text-sm text-gray-900 font-medium">{user.username}</td>
                   <td className="px-6 py-4 text-sm text-gray-500">{user.email || "-"}</td>
-                  <td className="px-6 py-4 text-sm">
-                    {user.status === "pending" && (
-                      <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full font-medium text-xs">قيد الانتظار</span>
-                    )}
-                    {user.status === "approved" && (
-                      <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium text-xs">مقبول</span>
-                    )}
-                    {user.status === "rejected" && (
-                      <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full font-medium text-xs">مرفوض</span>
-                    )}
-                  </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
-                    {user.status === "approved" ? (
-                      <div className="flex flex-wrap gap-1">
-                        {user.permissions.length > 0 ? (
-                          user.permissions.map((p) => (
-                            <span key={p} className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs border border-gray-200">
-                              {AVAILABLE_PERMISSIONS.find((ap) => ap.id === p)?.label || p}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-gray-400 italic">لا يوجد صلاحيات</span>
-                        )}
-                      </div>
-                    ) : (
-                      "-"
-                    )}
+                    <div className="flex flex-wrap gap-1">
+                      {user.permissions.length > 0 ? (
+                        user.permissions.map((p) => (
+                          <span key={p} className="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs border border-gray-200">
+                            {AVAILABLE_PERMISSIONS.find((ap) => ap.id === p)?.label || p}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-gray-400 italic">لا يوجد صلاحيات</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
-                      {user.status !== "approved" && (
-                        <button
-                          onClick={() => openApproveModal(user)}
-                          className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
-                          title="قبول وتحديد الصلاحيات"
-                        >
-                          <Check className="w-5 h-5" />
-                        </button>
-                      )}
-                      {user.status === "approved" && (
-                        <button
-                          onClick={() => openApproveModal(user)}
-                          className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                          title="تعديل الصلاحيات"
-                        >
-                          <Shield className="w-5 h-5" />
-                        </button>
-                      )}
-                      {user.status !== "rejected" && (
-                        <button
-                          onClick={() => confirmReject(user.id)}
-                          className="text-orange-500 hover:text-orange-700 p-2 rounded-lg hover:bg-orange-50 transition-colors"
-                          title="رفض"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => openPermissionsModal(user)}
+                        className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                        title="تعديل الصلاحيات"
+                      >
+                        <Shield className="w-5 h-5" />
+                      </button>
                       <button
                         onClick={() => confirmDelete(user.id)}
                         className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
@@ -211,15 +156,6 @@ export default function AdminUsers() {
       </div>
 
       <ConfirmModal
-        isOpen={rejectModal.isOpen}
-        title="رفض المستخدم"
-        message="هل أنت متأكد من رفض هذا المستخدم؟ لن يتمكن من الدخول للنظام."
-        confirmText="نعم، ارفض المستخدم"
-        onConfirm={executeReject}
-        onCancel={() => setRejectModal({ isOpen: false, id: null })}
-      />
-
-      <ConfirmModal
         isOpen={deleteModal.isOpen}
         title="حذف المستخدم"
         message="هل أنت متأكد من حذف هذا المستخدم نهائياً؟ لا يمكن التراجع عن هذا الإجراء."
@@ -233,7 +169,7 @@ export default function AdminUsers() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
             <h3 className="text-xl font-bold text-gray-900 mb-4">
-              {selectedUser.status === "approved" ? "تعديل صلاحيات" : "قبول وتحديد صلاحيات"} {selectedUser.username}
+              تعديل صلاحيات {selectedUser.username}
             </h3>
             
             <div className="space-y-3 mb-6">
@@ -258,7 +194,7 @@ export default function AdminUsers() {
                 إلغاء
               </button>
               <button
-                onClick={() => handleApprove(selectedUser.id)}
+                onClick={() => handleUpdatePermissions(selectedUser.id)}
                 className="px-6 py-2 bg-durra-green text-white rounded-lg hover:bg-durra-green-light transition-colors font-bold shadow-sm"
               >
                 حفظ

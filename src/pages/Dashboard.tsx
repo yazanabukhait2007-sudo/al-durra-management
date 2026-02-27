@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Users, ClipboardList, CalendarCheck, TrendingUp, Clock } from "lucide-react";
+import { Users, ClipboardList, CalendarCheck, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { Link } from "react-router-dom";
 import Logo from "../components/Logo";
@@ -17,10 +17,8 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user?.status === "approved") {
+    if (user) {
       fetchStats();
-    } else {
-      setLoading(false);
     }
   }, [user]);
 
@@ -55,21 +53,6 @@ export default function Dashboard() {
       setLoading(false);
     }
   };
-
-  if (user?.status === "pending") {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-6" dir="rtl">
-        <div className="bg-orange-100 p-6 rounded-full mb-6">
-          <Clock className="w-16 h-16 text-orange-500" />
-        </div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-4">حسابك قيد المراجعة</h1>
-        <p className="text-gray-600 max-w-md text-lg leading-relaxed">
-          مرحباً بك في نظام لافانت. حسابك حالياً قيد المراجعة من قبل الإدارة. 
-          لن تتمكن من رؤية أي محتوى أو استخدام النظام حتى يتم الموافقة على حسابك ومنحك الصلاحيات اللازمة.
-        </p>
-      </div>
-    );
-  }
 
   const statCards = [
     { name: "إجمالي العمال", value: stats.workers, icon: Users, color: "bg-durra-green", link: "/workers" },

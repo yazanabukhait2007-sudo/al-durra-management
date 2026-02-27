@@ -30,14 +30,6 @@ function ProtectedRoute({ children, permission }: { children: React.ReactNode, p
     return <Navigate to="/login" replace />;
   }
 
-  if (user.status === "rejected") {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (user.status === "pending" && permission) {
-    return <Navigate to="/" replace />;
-  }
-
   if (permission && user.role !== "admin" && !user.permissions.includes(permission)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center p-6" dir="rtl">

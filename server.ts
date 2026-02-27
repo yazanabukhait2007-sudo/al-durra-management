@@ -48,7 +48,7 @@ db.exec(`
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     password TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
+    status TEXT NOT NULL DEFAULT 'approved',
     role TEXT NOT NULL DEFAULT 'user',
     permissions TEXT NOT NULL DEFAULT '[]'
   );
@@ -194,24 +194,14 @@ async function startServer() {
     res.json(users.map((u: any) => ({ ...u, permissions: JSON.parse(u.permissions || '[]') })));
   });
 
-  app.put("/api/admin/users/:id/approve", authenticateToken, requirePermission("manage_users"), (req, res) => {
+  app.put("/api/admin/users/:id/permissions", authenticateToken, requirePermission("manage_users"), (req, res) => {
     const { id } = req.params;
     const { permissions } = req.body; // Array of strings
     try {
-      db.prepare("UPDATE users SET status = 'approved', permissions = ? WHERE id = ?").run(JSON.stringify(permissions || []), id);
+      db.prepare("UPDATE users SET permissions = ? WHERE id = ?").run(JSON.stringify(permissions || []), id);
       res.json({ success: true });
     } catch (err) {
-      res.status(500).json({ error: "Failed to approve user" });
-    }
-  });
-
-  app.put("/api/admin/users/:id/reject", authenticateToken, requirePermission("manage_users"), (req, res) => {
-    const { id } = req.params;
-    try {
-      db.prepare("UPDATE users SET status = 'rejected' WHERE id = ?").run(id);
-      res.json({ success: true });
-    } catch (err) {
-      res.status(500).json({ error: "Failed to reject user" });
+      res.status(500).json({ error: "Failed to update permissions" });
     }
   });
 
