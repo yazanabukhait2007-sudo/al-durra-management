@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Logs
 logs
 *.log
@@ -67,3 +68,13 @@ node_modules/
 
 # dataconnect generated files
 .dataconnect
+=======
+node_modules/
+build/
+dist/
+coverage/
+.DS_Store
+*.log
+.env*
+!.env.example
+>>>>>>> 2d5439b80d7a1c1f3c683f7c8445e185ca437d4b

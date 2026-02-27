@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+@theme {
+  --color-durra-green: #006838;
+  --color-durra-green-light: #008a4b;
+  --color-durra-red: #ED1C24;
+  --color-durra-red-light: #ff333b;
+}
