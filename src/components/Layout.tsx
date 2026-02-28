@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet } from "lucide-react";
+import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet, Menu, X, Settings, ChevronRight, ChevronLeft } from "lucide-react";
 import Logo from "./Logo";
 import { useAuth } from "../context/AuthContext";
 
@@ -8,6 +8,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
   const handleLogout = () => {
     logout();
@@ -15,12 +17,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   };
 
   const navigation = [
-    { name: "الرئيسية", href: "/", icon: LayoutDashboard, permission: null },
-    { name: "العمال", href: "/workers", icon: Users, permission: "manage_workers" },
-    { name: "الأعمال (المهام)", href: "/tasks", icon: ClipboardList, permission: "manage_tasks" },
-    { name: "التقييم اليومي", href: "/evaluations", icon: CalendarCheck, permission: "manage_evaluations" },
+    { name: "الرئيسية", href: "/", icon: LayoutDashboard, permission: "view_dashboard" },
+    { name: "العمال", href: "/workers", icon: Users, permission: "view_workers" },
+    { name: "الأعمال (المهام)", href: "/tasks", icon: ClipboardList, permission: "view_tasks" },
+    { name: "التقييم اليومي", href: "/evaluations", icon: CalendarCheck, permission: "view_evaluations" },
     { name: "التقرير الشهري", href: "/reports", icon: BarChart3, permission: "view_reports" },
-    { name: "كشف حساب", href: "/account-statement", icon: Wallet, permission: "manage_workers" },
+    { name: "كشف حساب", href: "/account-statement", icon: Wallet, permission: "view_account_statements" },
     { name: "إدارة المستخدمين", href: "/admin/users", icon: ShieldAlert, permission: "manage_users" },
   ];
 
@@ -31,54 +33,145 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col md:flex-row" dir="rtl">
-      {/* Sidebar */}
-      <div className="w-full md:w-64 bg-durra-green text-white shadow-xl flex-shrink-0">
-        <div className="p-6 flex flex-col items-center border-b border-white/10">
-          <Logo className="mb-4 scale-90" />
-          <h1 className="text-lg font-bold text-white text-center">شركة لافانت للمنتجات الغذائية</h1>
+    <div className="min-h-screen bg-gray-100 flex flex-col md:flex-row font-sans" dir="rtl">
+      {/* Mobile Header */}
+      <div className="md:hidden bg-gradient-to-r from-durra-green to-durra-green-light text-white p-4 flex justify-between items-center shadow-lg z-20 sticky top-0">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+            className="p-2 hover:bg-white/10 rounded-xl transition-colors focus:outline-none focus:ring-2 focus:ring-white/20"
+          >
+            {isSidebarOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+          </button>
+          <span className="font-bold text-lg tracking-wide">شركة لافانت</span>
         </div>
-        <nav className="mt-6 px-4 space-y-2 flex-1">
+        <div className="scale-75 origin-left">
+          <Logo noShadow={true} />
+        </div>
+      </div>
+
+      {/* Mobile Sidebar Backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden transition-opacity"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div className={`
+        fixed inset-y-0 right-0 z-30 
+        bg-gradient-to-b from-durra-green to-[#004d2a] text-white shadow-2xl 
+        transform transition-all duration-300 ease-in-out
+        ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
+        md:translate-x-0 md:static md:h-screen md:sticky md:top-0
+        ${isDesktopSidebarOpen ? 'md:w-72' : 'md:w-20'}
+        flex flex-col overflow-hidden border-l border-white/5
+      `}>
+        {/* Sidebar Header */}
+        <div className={`flex items-center justify-center h-24 border-b border-white/10 transition-all duration-300 ${isDesktopSidebarOpen ? 'px-6' : 'px-2'}`}>
+          {isDesktopSidebarOpen && (
+            <div className="flex flex-col items-center animate-fadeIn">
+              <Logo className="mb-2 scale-90" />
+              <h1 className="text-sm font-bold text-white text-center opacity-90 leading-tight">شركة لافانت<br/><span className="text-xs font-normal opacity-75">للمنتجات الغذائية</span></h1>
+            </div>
+          )}
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
           {filteredNavigation.map((item) => {
             const isActive = location.pathname === item.href;
             return (
               <Link
                 key={item.name}
                 to={item.href}
-                className={`flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all ${
-                  isActive
-                    ? "bg-white text-durra-green shadow-md"
-                    : "text-white/80 hover:bg-white/10 hover:text-white"
-                }`}
+                onClick={() => setIsSidebarOpen(false)}
+                className={`
+                  group flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 relative overflow-hidden
+                  ${isActive 
+                    ? "bg-white/15 text-white shadow-inner" 
+                    : "text-white/70 hover:bg-white/10 hover:text-white"
+                  }
+                  ${!isDesktopSidebarOpen && "justify-center"}
+                `}
+                title={!isDesktopSidebarOpen ? item.name : ""}
               >
-                <item.icon className={`ml-3 h-5 w-5 ${isActive ? "text-durra-green" : "text-white/70"}`} />
-                {item.name}
+                {isActive && <div className="absolute right-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-durra-red rounded-l-full" />}
+                
+                <item.icon className={`
+                  h-5 w-5 transition-transform duration-200 group-hover:scale-110
+                  ${isActive ? "text-white" : "text-white/70 group-hover:text-white"}
+                  ${isDesktopSidebarOpen ? "ml-3" : ""}
+                `} />
+                
+                {isDesktopSidebarOpen && (
+                  <span className="truncate">{item.name}</span>
+                )}
+                
+                {isDesktopSidebarOpen && isActive && (
+                  <ChevronLeft className="w-4 h-4 mr-auto opacity-50" />
+                )}
               </Link>
             );
           })}
         </nav>
         
-        <div className="p-4 border-t border-white/10">
-          <div className="flex items-center justify-between px-4 py-3 text-sm font-medium text-white/80">
-            <span className="truncate">{user?.username}</span>
-            <button
-              onClick={handleLogout}
-              className="text-red-300 hover:text-red-100 transition-colors"
-              title="تسجيل الخروج"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
-          </div>
+        {/* User Profile Footer */}
+        <div className="p-4 border-t border-white/10 bg-black/10">
+          <Link 
+            to="/settings"
+            onClick={() => setIsSidebarOpen(false)}
+            className={`
+              flex items-center ${isDesktopSidebarOpen ? 'justify-between px-3' : 'justify-center'} 
+              py-2 text-sm font-medium text-white/80 hover:bg-white/10 hover:text-white rounded-xl transition-all group
+            `}
+            title="الإعدادات"
+          >
+            <div className="flex items-center gap-3 truncate">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-white/20 to-white/5 border border-white/10 flex items-center justify-center text-sm font-bold shadow-sm">
+                {user?.username?.charAt(0).toUpperCase()}
+              </div>
+              
+              {isDesktopSidebarOpen && (
+                <div className="flex flex-col items-start animate-fadeIn">
+                  <span className="truncate font-bold text-sm">{user?.username}</span>
+                  <span className="text-xs opacity-60">الإعدادات</span>
+                </div>
+              )}
+            </div>
+            
+            {isDesktopSidebarOpen && (
+              <Settings className="h-5 w-5 opacity-60 group-hover:opacity-100 transition-opacity group-hover:rotate-90 duration-500" />
+            )}
+          </Link>
         </div>
       </div>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Watermark Logo */}
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-5 z-0 overflow-hidden">
-          <Logo className="scale-[5] rotate-[-15deg]" />
+      <div className="flex-1 flex flex-col overflow-hidden relative min-h-[calc(100vh-64px)] md:min-h-screen transition-all duration-300">
+        
+        {/* Desktop Sidebar Toggle */}
+        <div className="hidden md:block absolute top-6 right-6 z-20">
+          <button 
+            onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
+            className="p-2 bg-white text-durra-green rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all border border-gray-100 group"
+            title={isDesktopSidebarOpen ? "تصغير القائمة" : "توسيع القائمة"}
+          >
+            {isDesktopSidebarOpen ? (
+              <ChevronRight className="h-5 w-5 group-hover:scale-110 transition-transform" />
+            ) : (
+              <Menu className="h-5 w-5 group-hover:scale-110 transition-transform" />
+            )}
+          </button>
         </div>
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-transparent p-6 relative z-10">
+
+        {/* Watermark Logo */}
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.03] z-0 overflow-hidden">
+          <Logo className="scale-[5] rotate-[-15deg] grayscale" />
+        </div>
+        
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-transparent p-6 md:p-8 relative">
           {children}
         </main>
       </div>

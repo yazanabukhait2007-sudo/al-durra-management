@@ -18,6 +18,7 @@ import MonthlyReport from "./pages/MonthlyReport";
 import AccountStatement from "./pages/AccountStatement";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import Settings from "./pages/Settings";
 import AdminUsers from "./pages/AdminUsers";
 
 function ProtectedRoute({ children, permission }: { children: React.ReactNode, permission?: string }) {
@@ -54,32 +55,32 @@ function AnimatedRoutes() {
           <Route path="/signup" element={<Signup />} />
           
           <Route path="/" element={
-            <ProtectedRoute>
+            <ProtectedRoute permission="view_dashboard">
               <Layout><Dashboard /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/workers" element={
-            <ProtectedRoute permission="manage_workers">
+            <ProtectedRoute permission="view_workers">
               <Layout><Workers /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/tasks" element={
-            <ProtectedRoute permission="manage_tasks">
+            <ProtectedRoute permission="view_tasks">
               <Layout><Tasks /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/evaluations" element={
-            <ProtectedRoute permission="manage_evaluations">
+            <ProtectedRoute permission="view_evaluations">
               <Layout><Evaluations /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/evaluations/new" element={
-            <ProtectedRoute permission="manage_evaluations">
+            <ProtectedRoute permission="add_evaluation">
               <Layout><AddEvaluation /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/evaluations/edit/:id" element={
-            <ProtectedRoute permission="manage_evaluations">
+            <ProtectedRoute permission="edit_evaluation">
               <Layout><EditEvaluation /></Layout>
             </ProtectedRoute>
           } />
@@ -89,13 +90,18 @@ function AnimatedRoutes() {
             </ProtectedRoute>
           } />
           <Route path="/account-statement" element={
-            <ProtectedRoute permission="manage_workers">
+            <ProtectedRoute permission="view_account_statements">
               <Layout><AccountStatement /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/admin/users" element={
             <ProtectedRoute permission="manage_users">
               <Layout><AdminUsers /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <Layout><Settings /></Layout>
             </ProtectedRoute>
           } />
         </Routes>

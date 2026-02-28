@@ -6,10 +6,25 @@ import ConfirmModal from "../components/ConfirmModal";
 import { fetchWithAuth } from "../utils/api";
 
 const AVAILABLE_PERMISSIONS = [
-  { id: "manage_workers", label: "إدارة العمال (إضافة/حذف)" },
-  { id: "manage_tasks", label: "إدارة المهام (إضافة/حذف)" },
-  { id: "manage_evaluations", label: "إدارة التقييمات (إضافة/تعديل/حذف)" },
+  { id: "view_dashboard", label: "عرض لوحة القيادة والإحصائيات" },
+  { id: "view_workers", label: "عرض قائمة العمال" },
+  { id: "add_worker", label: "إضافة عامل جديد" },
+  { id: "edit_worker", label: "تعديل بيانات عامل" },
+  { id: "delete_worker", label: "حذف عامل" },
+  { id: "view_tasks", label: "عرض قائمة المهام" },
+  { id: "add_task", label: "إضافة مهمة جديدة" },
+  { id: "edit_task", label: "تعديل مهمة" },
+  { id: "delete_task", label: "حذف مهمة" },
+  { id: "view_evaluations", label: "عرض التقييمات" },
+  { id: "add_evaluation", label: "إضافة تقييم جديد" },
+  { id: "edit_evaluation", label: "تعديل تقييم" },
+  { id: "delete_evaluation", label: "حذف تقييم" },
   { id: "view_reports", label: "عرض التقارير وتصديرها" },
+  { id: "view_account_statements", label: "عرض كشوفات الحساب" },
+  { id: "add_transaction", label: "إضافة حركات مالية" },
+  { id: "delete_transaction", label: "حذف حركات مالية" },
+  { id: "export_pdf", label: "تصدير كشوفات الحساب (PDF)" },
+  { id: "manage_users", label: "إدارة المستخدمين والصلاحيات" },
 ];
 
 export default function AdminUsers() {

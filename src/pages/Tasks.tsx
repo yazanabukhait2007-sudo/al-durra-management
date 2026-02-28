@@ -4,10 +4,12 @@ import { Plus, Trash2 } from "lucide-react";
 
 import Logo from "../components/Logo";
 import ConfirmModal from "../components/ConfirmModal";
+import { useAuth } from "../context/AuthContext";
 
 import { fetchWithAuth } from "../utils/api";
 
 export default function Tasks() {
+  const { user } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [newTaskName, setNewTaskName] = useState("");
   const [newTargetQuantity, setNewTargetQuantity] = useState("");
@@ -80,6 +82,9 @@ export default function Tasks() {
     }
   };
 
+  const canAdd = user?.role === 'admin' || user?.permissions.includes('add_task');
+  const canDelete = user?.role === 'admin' || user?.permissions.includes('delete_task');
+
   return (
     <div dir="rtl">
       <div className="flex justify-between items-center mb-6">
@@ -87,35 +92,37 @@ export default function Tasks() {
         <Logo className="scale-75 origin-left hidden sm:flex" />
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">إضافة مهمة جديدة</h2>
-        <form onSubmit={addTask} className="flex flex-col md:flex-row gap-4">
-          <input
-            type="text"
-            value={newTaskName}
-            onChange={(e) => setNewTaskName(e.target.value)}
-            placeholder="اسم المهمة (مثال: بحث بلور 1375 مل)..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
-            required
-          />
-          <input
-            type="number"
-            value={newTargetQuantity}
-            onChange={(e) => setNewTargetQuantity(e.target.value)}
-            placeholder="الهدف..."
-            className="w-full md:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
-            required
-            min="1"
-          />
-          <button
-            type="submit"
-            className="bg-durra-green text-white px-6 py-2 rounded-lg hover:bg-durra-green-light flex items-center justify-center gap-2 transition-colors"
-          >
-            <Plus className="w-5 h-5" />
-            إضافة
-          </button>
-        </form>
-      </div>
+      {canAdd && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">إضافة مهمة جديدة</h2>
+          <form onSubmit={addTask} className="flex flex-col md:flex-row gap-4">
+            <input
+              type="text"
+              value={newTaskName}
+              onChange={(e) => setNewTaskName(e.target.value)}
+              placeholder="اسم المهمة (مثال: بحث بلور 1375 مل)..."
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+              required
+            />
+            <input
+              type="number"
+              value={newTargetQuantity}
+              onChange={(e) => setNewTargetQuantity(e.target.value)}
+              placeholder="الهدف..."
+              className="w-full md:w-48 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+              required
+              min="1"
+            />
+            <button
+              type="submit"
+              className="bg-durra-green text-white px-6 py-2 rounded-lg hover:bg-durra-green-light flex items-center justify-center gap-2 transition-colors"
+            >
+              <Plus className="w-5 h-5" />
+              إضافة
+            </button>
+          </form>
+        </div>
+      )}
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-right">
@@ -124,7 +131,9 @@ export default function Tasks() {
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">الرقم</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">المهمة</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">الهدف</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-24">إجراء</th>
+              {canDelete && (
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-24">إجراء</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -146,15 +155,17 @@ export default function Tasks() {
                       {task.target_quantity}
                     </span>
                   </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => confirmDelete(task.id, task.name)}
-                      className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                      title="حذف"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  </td>
+                  {canDelete && (
+                    <td className="px-6 py-4">
+                      <button
+                        onClick={() => confirmDelete(task.id, task.name)}
+                        className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                        title="حذف"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))
             )}

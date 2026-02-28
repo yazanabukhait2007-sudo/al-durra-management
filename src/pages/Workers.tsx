@@ -4,10 +4,12 @@ import { Plus, Trash2, Search, Edit, X } from "lucide-react";
 
 import Logo from "../components/Logo";
 import ConfirmModal from "../components/ConfirmModal";
+import { useAuth } from "../context/AuthContext";
 
 import { fetchWithAuth } from "../utils/api";
 
 export default function Workers() {
+  const { user } = useAuth();
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -138,6 +140,10 @@ export default function Workers() {
     }
   };
 
+  const canAdd = user?.role === 'admin' || user?.permissions.includes('add_worker');
+  const canEdit = user?.role === 'admin' || user?.permissions.includes('edit_worker');
+  const canDelete = user?.role === 'admin' || user?.permissions.includes('delete_worker');
+
   return (
     <div dir="rtl">
       <div className="flex justify-between items-center mb-6">
@@ -158,13 +164,15 @@ export default function Workers() {
             className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
           />
         </div>
-        <button
-          onClick={() => handleOpenModal()}
-          className="w-full sm:w-auto bg-durra-green text-white px-6 py-2 rounded-lg hover:bg-durra-green-light flex items-center justify-center gap-2 transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          إضافة عامل جديد
-        </button>
+        {canAdd && (
+          <button
+            onClick={() => handleOpenModal()}
+            className="w-full sm:w-auto bg-durra-green text-white px-6 py-2 rounded-lg hover:bg-durra-green-light flex items-center justify-center gap-2 transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            إضافة عامل جديد
+          </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -177,7 +185,9 @@ export default function Workers() {
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">العمل الحالي</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">الراتب</th>
                 <th className="px-6 py-4 text-sm font-semibold text-gray-600">الضمان</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-32 text-center">إجراءات</th>
+                {(canEdit || canDelete) && (
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-32 text-center">إجراءات</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -203,15 +213,19 @@ export default function Workers() {
                         <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">غير مشمول</span>
                       )}
                     </td>
-                    <td className="px-6 py-4 flex justify-center gap-2">
-                      <button
-                        onClick={() => handleOpenModal(worker)}
-                        className="text-blue-500 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                        title="تعديل / عرض التفاصيل"
-                      >
-                        <Edit className="w-5 h-5" />
-                      </button>
-                    </td>
+                    {(canEdit || canDelete) && (
+                      <td className="px-6 py-4 flex justify-center gap-2">
+                        {canEdit && (
+                          <button
+                            onClick={() => handleOpenModal(worker)}
+                            className="text-blue-500 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                            title="تعديل / عرض التفاصيل"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -380,7 +394,7 @@ export default function Workers() {
             
             <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
               <div>
-                {editingWorker && (
+                {editingWorker && canDelete && (
                   <button
                     type="button"
                     onClick={() => confirmDelete(editingWorker.id, editingWorker.name)}

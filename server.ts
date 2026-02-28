@@ -214,6 +214,42 @@ async function startServer() {
     });
   });
 
+  // Update Profile (Email)
+  app.put("/api/auth/profile", authenticateToken, (req: any, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "Email is required" });
+    
+    try {
+      // Check if email is taken by another user
+      const existing = db.prepare("SELECT id FROM users WHERE email = ? AND id != ?").get(email, req.user.id);
+      if (existing) return res.status(400).json({ error: "Email already in use" });
+
+      db.prepare("UPDATE users SET email = ? WHERE id = ?").run(email, req.user.id);
+      res.json({ success: true, message: "Profile updated successfully" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update profile" });
+    }
+  });
+
+  // Update Password
+  app.put("/api/auth/password", authenticateToken, (req: any, res) => {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) return res.status(400).json({ error: "Current and new password are required" });
+
+    try {
+      const user = db.prepare("SELECT password FROM users WHERE id = ?").get(req.user.id) as any;
+      if (!bcrypt.compareSync(currentPassword, user.password)) {
+        return res.status(400).json({ error: "Incorrect current password" });
+      }
+
+      const hashed = bcrypt.hashSync(newPassword, 10);
+      db.prepare("UPDATE users SET password = ? WHERE id = ?").run(hashed, req.user.id);
+      res.json({ success: true, message: "Password updated successfully" });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update password" });
+    }
+  });
+
   // Admin Users Management
   app.get("/api/admin/users", authenticateToken, requirePermission("manage_users"), (req, res) => {
     const users = db.prepare("SELECT id, username, email, status, role, permissions FROM users WHERE role != 'admin'").all();

@@ -54,6 +54,9 @@ export default function Dashboard() {
     }
   };
 
+  const canAddEvaluation = user?.role === 'admin' || user?.permissions.includes('add_evaluation');
+  const canViewReports = user?.role === 'admin' || user?.permissions.includes('view_reports');
+
   const statCards = [
     { name: "إجمالي العمال", value: stats.workers, icon: Users, color: "bg-durra-green", link: "/workers" },
     { name: "المهام المسجلة", value: stats.tasks, icon: ClipboardList, color: "bg-durra-green-light", link: "/tasks" },
@@ -97,18 +100,22 @@ export default function Dashboard() {
           يقوم النظام تلقائياً بحساب النسبة المئوية للإنجاز لكل عامل، ويوفر تقارير شهرية مفصلة.
         </p>
         <div className="mt-8 flex gap-4">
-          <Link
-            to="/evaluations/new"
-            className="bg-durra-green text-white px-6 py-3 rounded-xl hover:bg-durra-green-light transition-colors font-medium shadow-sm"
-          >
-            إضافة تقييم جديد
-          </Link>
-          <Link
-            to="/reports"
-            className="bg-gray-100 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-200 transition-colors font-medium"
-          >
-            عرض التقارير
-          </Link>
+          {canAddEvaluation && (
+            <Link
+              to="/evaluations/new"
+              className="bg-durra-green text-white px-6 py-3 rounded-xl hover:bg-durra-green-light transition-colors font-medium shadow-sm"
+            >
+              إضافة تقييم جديد
+            </Link>
+          )}
+          {canViewReports && (
+            <Link
+              to="/reports"
+              className="bg-gray-100 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-200 transition-colors font-medium"
+            >
+              عرض التقارير
+            </Link>
+          )}
         </div>
       </div>
     </div>

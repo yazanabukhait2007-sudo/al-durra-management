@@ -7,9 +7,11 @@ import { format } from "date-fns";
 import Logo from "../components/Logo";
 import MonthPicker from "../components/MonthPicker";
 import ConfirmModal from "../components/ConfirmModal";
+import { useAuth } from "../context/AuthContext";
 import { fetchWithAuth } from "../utils/api";
 
 export default function Evaluations() {
+  const { user } = useAuth();
   const [evaluations, setEvaluations] = useState<DailyEvaluation[]>([]);
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(() => format(new Date(), "yyyy-MM"));
@@ -56,6 +58,10 @@ export default function Evaluations() {
     }
   };
 
+  const canAdd = user?.role === 'admin' || user?.permissions.includes('add_evaluation');
+  const canEdit = user?.role === 'admin' || user?.permissions.includes('edit_evaluation');
+  const canDelete = user?.role === 'admin' || user?.permissions.includes('delete_evaluation');
+
   return (
     <div dir="rtl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -63,13 +69,15 @@ export default function Evaluations() {
           <h1 className="text-2xl font-bold text-gray-900">التقييمات اليومية</h1>
           <Logo className="scale-75 origin-right hidden sm:flex" />
         </div>
-        <Link
-          to="/evaluations/new"
-          className="bg-durra-green text-white px-6 py-2 rounded-lg hover:bg-durra-green-light flex items-center gap-2 transition-colors shadow-sm"
-        >
-          <Plus className="w-5 h-5" />
-          إضافة تقييم جديد
-        </Link>
+        {canAdd && (
+          <Link
+            to="/evaluations/new"
+            className="bg-durra-green text-white px-6 py-2 rounded-lg hover:bg-durra-green-light flex items-center gap-2 transition-colors shadow-sm"
+          >
+            <Plus className="w-5 h-5" />
+            إضافة تقييم جديد
+          </Link>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 flex flex-col sm:flex-row gap-4 items-end">
@@ -94,7 +102,9 @@ export default function Evaluations() {
             <tr>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">التاريخ</th>
               <th className="px-6 py-4 text-sm font-semibold text-gray-600">العامل</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-32">إجراء</th>
+              {(canEdit || canDelete) && (
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-32">إجراء</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -115,24 +125,30 @@ export default function Evaluations() {
                   <td className="px-6 py-4 text-sm text-gray-900">
                     {evaluation.worker_name}
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => navigate(`/evaluations/edit/${evaluation.id}`)}
-                        className="text-durra-green hover:text-durra-green-light p-2 rounded-lg hover:bg-durra-green/10 transition-colors"
-                        title="تعديل"
-                      >
-                        <Edit className="w-5 h-5" />
-                      </button>
-                      <button
-                        onClick={() => confirmDelete(evaluation.id)}
-                        className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                        title="حذف"
-                      >
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </td>
+                  {(canEdit || canDelete) && (
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        {canEdit && (
+                          <button
+                            onClick={() => navigate(`/evaluations/edit/${evaluation.id}`)}
+                            className="text-durra-green hover:text-durra-green-light p-2 rounded-lg hover:bg-durra-green/10 transition-colors"
+                            title="تعديل"
+                          >
+                            <Edit className="w-5 h-5" />
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => confirmDelete(evaluation.id)}
+                            className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                            title="حذف"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
