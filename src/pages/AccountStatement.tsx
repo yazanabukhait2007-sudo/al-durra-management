@@ -8,6 +8,7 @@ import MonthPicker from "../components/MonthPicker";
 import DatePicker from "../components/DatePicker";
 import ConfirmModal from "../components/ConfirmModal";
 import { useAuth } from "../context/AuthContext";
+import Logo from "../components/Logo";
 
 interface Worker {
   id: number;
@@ -315,11 +316,16 @@ export default function AccountStatement() {
 
             <div className="p-6 overflow-y-auto flex-1 print-area">
               <div ref={statementRef} className="bg-[#ffffff] p-8 rounded-xl border border-[#e5e7eb]" dir="rtl">
-                <div className="text-center mb-8">
-                  <h1 className="text-2xl font-bold text-[#111827] mb-2">كشف حساب عامل</h1>
-                  <p className="text-[#4b5563]">
-                    {format(new Date(`${selectedMonth}-01`), 'MMMM yyyy', { locale: ar })}
-                  </p>
+                <div className="flex justify-between items-center mb-8 border-b-2 border-[#006838] pb-4">
+                  <div>
+                    <h1 className="text-2xl font-bold text-[#006838] mb-2">كشف حساب عامل</h1>
+                    <p className="text-[#4b5563]">
+                      {format(new Date(`${selectedMonth}-01`), 'MMMM yyyy', { locale: ar })}
+                    </p>
+                  </div>
+                  <div className="scale-100 origin-left">
+                    <Logo noShadow={true} />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 mb-8">
@@ -342,7 +348,7 @@ export default function AccountStatement() {
                       <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">النوع</th>
                       <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">البيان</th>
                       <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">المبلغ</th>
-                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151] text-center hide-on-print">حذف</th>
+                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151] text-center hide-on-print" data-html2canvas-ignore="true">حذف</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -358,7 +364,7 @@ export default function AccountStatement() {
                         <td className="border border-[#e5e7eb] px-4 py-2 font-medium text-[#111827]" dir="ltr">
                           {(t.type === 'deduction' || t.type === 'payment') ? '-' : '+'}{t.amount.toFixed(2)}
                         </td>
-                        <td className="border border-[#e5e7eb] px-4 py-2 text-center hide-on-print">
+                        <td className="border border-[#e5e7eb] px-4 py-2 text-center hide-on-print" data-html2canvas-ignore="true">
                           <button
                             onClick={() => confirmDelete(t.id)}
                             className="text-[#ef4444] hover:text-[#b91c1c] p-1"
@@ -382,10 +388,14 @@ export default function AccountStatement() {
                       <td className="border border-[#e5e7eb] px-4 py-3 text-[#111827]" dir="ltr">
                         {calculateNetBalance(selectedWorker.id).toFixed(2)} د.أ
                       </td>
-                      <td className="border border-[#e5e7eb] px-4 py-3 hide-on-print"></td>
+                      <td className="border border-[#e5e7eb] px-4 py-3 hide-on-print" data-html2canvas-ignore="true"></td>
                     </tr>
                   </tfoot>
                 </table>
+                
+                <div className="mt-12 pt-4 border-t border-[#e5e7eb] text-center text-[#6b7280] text-sm">
+                  تم إصدار هذا الكشف من شركة لافانت للمنتجات الغذائية
+                </div>
               </div>
             </div>
           </div>
