@@ -16,7 +16,18 @@ const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-durra-app";
 db.exec(`
   CREATE TABLE IF NOT EXISTS workers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE
+    name TEXT NOT NULL UNIQUE,
+    phone TEXT,
+    alt_phone TEXT,
+    address TEXT,
+    skills TEXT,
+    last_workplace TEXT,
+    current_job TEXT,
+    salary REAL,
+    has_social_security INTEGER DEFAULT 0,
+    national_id TEXT,
+    age INTEGER,
+    notes TEXT
   );
 
   CREATE TABLE IF NOT EXISTS tasks (
@@ -52,7 +63,22 @@ db.exec(`
     role TEXT NOT NULL DEFAULT 'user',
     permissions TEXT NOT NULL DEFAULT '[]'
   );
+
+  CREATE TABLE IF NOT EXISTS worker_transactions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    worker_id INTEGER NOT NULL,
+    type TEXT NOT NULL, -- 'salary', 'bonus', 'deduction', 'payment'
+    amount REAL NOT NULL,
+    date TEXT NOT NULL,
+    description TEXT,
+    FOREIGN KEY (worker_id) REFERENCES workers(id)
+  );
 `);
+
+// Add columns if they don't exist (for existing databases)
+try { db.exec("ALTER TABLE workers ADD COLUMN national_id TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE workers ADD COLUMN age INTEGER"); } catch (e) {}
+try { db.exec("ALTER TABLE workers ADD COLUMN notes TEXT"); } catch (e) {}
 
 // Create default admin if not exists
 const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
@@ -222,13 +248,57 @@ async function startServer() {
   });
 
   app.post("/api/workers", authenticateToken, requirePermission("manage_workers"), (req, res) => {
-    const { name } = req.body;
+    const { name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes } = req.body;
     if (!name) return res.status(400).json({ error: "Name is required" });
     try {
-      const info = db.prepare("INSERT INTO workers (name) VALUES (?)").run(name);
-      res.json({ id: info.lastInsertRowid, name });
+      const info = db.prepare(`
+        INSERT INTO workers (name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        name, 
+        phone || null, 
+        alt_phone || null, 
+        address || null, 
+        national_id || null,
+        age || null,
+        last_workplace || null, 
+        current_job || null, 
+        salary || null, 
+        has_social_security ? 1 : 0,
+        notes || null
+      );
+      res.json({ id: info.lastInsertRowid, name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes });
     } catch (err) {
       res.status(400).json({ error: "Worker already exists or invalid data" });
+    }
+  });
+
+  app.put("/api/workers/:id", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+    const { id } = req.params;
+    const { name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes } = req.body;
+    if (!name) return res.status(400).json({ error: "Name is required" });
+    try {
+      db.prepare(`
+        UPDATE workers 
+        SET name = ?, phone = ?, alt_phone = ?, address = ?, national_id = ?, age = ?, last_workplace = ?, current_job = ?, salary = ?, has_social_security = ?, notes = ?
+        WHERE id = ?
+      `).run(
+        name, 
+        phone || null, 
+        alt_phone || null, 
+        address || null, 
+        national_id || null,
+        age || null,
+        last_workplace || null, 
+        current_job || null, 
+        salary || null, 
+        has_social_security ? 1 : 0,
+        notes || null,
+        id
+      );
+      res.json({ success: true });
+    } catch (err) {
+      res.status(400).json({ error: "Failed to update worker" });
     }
   });
 
@@ -247,6 +317,9 @@ async function startServer() {
       // Delete evaluations
       db.prepare("DELETE FROM daily_evaluations WHERE worker_id = ?").run(id);
       
+      // Delete transactions
+      db.prepare("DELETE FROM worker_transactions WHERE worker_id = ?").run(id);
+
       // Delete worker
       db.prepare("DELETE FROM workers WHERE id = ?").run(id);
     });
@@ -257,6 +330,69 @@ async function startServer() {
     } catch (err) {
       console.error("Failed to delete worker:", err);
       res.status(500).json({ error: "Failed to delete worker" });
+    }
+  });
+
+  // Worker Transactions
+  app.get("/api/workers/:id/transactions", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+    const { id } = req.params;
+    const { month } = req.query; // format: YYYY-MM
+    
+    let query = "SELECT * FROM worker_transactions WHERE worker_id = ?";
+    const params: any[] = [id];
+    
+    if (month) {
+      query += " AND date LIKE ?";
+      params.push(`${month}%`);
+    }
+    
+    query += " ORDER BY date DESC, id DESC";
+    
+    try {
+      const transactions = db.prepare(query).all(...params);
+      res.json(transactions);
+    } catch (err) {
+      console.error("Failed to fetch transactions:", err);
+      res.status(500).json({ error: "Failed to fetch transactions" });
+    }
+  });
+
+  app.post("/api/workers/:id/transactions", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+    const { id } = req.params;
+    const { type, amount, date, description } = req.body;
+    
+    if (!type || amount === undefined || !date) {
+      return res.status(400).json({ error: "Type, amount, and date are required" });
+    }
+    
+    try {
+      const info = db.prepare(`
+        INSERT INTO worker_transactions (worker_id, type, amount, date, description)
+        VALUES (?, ?, ?, ?, ?)
+      `).run(id, type, amount, date, description || null);
+      
+      res.json({ 
+        id: info.lastInsertRowid, 
+        worker_id: parseInt(id), 
+        type, 
+        amount, 
+        date, 
+        description 
+      });
+    } catch (err) {
+      console.error("Failed to add transaction:", err);
+      res.status(500).json({ error: "Failed to add transaction" });
+    }
+  });
+
+  app.delete("/api/transactions/:id", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare("DELETE FROM worker_transactions WHERE id = ?").run(id);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Failed to delete transaction:", err);
+      res.status(500).json({ error: "Failed to delete transaction" });
     }
   });
 

@@ -25,8 +25,15 @@ export default function ConfirmModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" dir="rtl">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4" 
+      dir="rtl"
+      onClick={onCancel}
+    >
+      <div 
+        className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="p-6">
           <div className="flex items-start justify-between mb-4">
             <div className={`p-3 rounded-full ${isDestructive ? "bg-red-100 text-red-600" : "bg-yellow-100 text-yellow-600"}`}>

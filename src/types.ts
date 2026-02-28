@@ -10,6 +10,16 @@ export interface User {
 export interface Worker {
   id: number;
   name: string;
+  phone?: string;
+  alt_phone?: string;
+  address?: string;
+  national_id?: string;
+  age?: number;
+  notes?: string;
+  last_workplace?: string;
+  current_job?: string;
+  salary?: number;
+  has_social_security?: number;
 }
 
 export interface Task {

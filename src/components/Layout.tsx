@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert } from "lucide-react";
+import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet } from "lucide-react";
 import Logo from "./Logo";
 import { useAuth } from "../context/AuthContext";
 
@@ -20,6 +20,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: "الأعمال (المهام)", href: "/tasks", icon: ClipboardList, permission: "manage_tasks" },
     { name: "التقييم اليومي", href: "/evaluations", icon: CalendarCheck, permission: "manage_evaluations" },
     { name: "التقرير الشهري", href: "/reports", icon: BarChart3, permission: "view_reports" },
+    { name: "كشف حساب", href: "/account-statement", icon: Wallet, permission: "manage_workers" },
     { name: "إدارة المستخدمين", href: "/admin/users", icon: ShieldAlert, permission: "manage_users" },
   ];
 

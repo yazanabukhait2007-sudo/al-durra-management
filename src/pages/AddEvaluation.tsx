@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Worker, Task } from "../types";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
-import { Plus, Trash2, Save, ArrowRight, Calendar } from "lucide-react";
+import { Plus, Trash2, Save, ArrowRight, Calendar, User, CheckSquare } from "lucide-react";
 
 import Logo from "../components/Logo";
 import DatePicker from "../components/DatePicker";
+import CustomSelect from "../components/CustomSelect";
 
 import { fetchWithAuth } from "../utils/api";
 
@@ -110,19 +111,17 @@ export default function AddEvaluation() {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 العامل
               </label>
-              <select
+              <CustomSelect
                 value={selectedWorker}
-                onChange={(e) => setSelectedWorker(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50"
-                required
-              >
-                <option value="">-- اختر العامل --</option>
-                {workers.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedWorker}
+                options={workers.map((w) => ({
+                  value: w.id.toString(),
+                  label: w.name,
+                  subLabel: w.current_job || undefined,
+                }))}
+                placeholder="-- اختر العامل --"
+                icon={<User className="w-5 h-5 text-durra-green" />}
+              />
             </div>
 
             <div>
@@ -156,19 +155,18 @@ export default function AddEvaluation() {
                     <label className="block text-xs font-semibold text-gray-500 mb-1">
                       المهمة
                     </label>
-                    <select
+                    <CustomSelect
                       value={entry.task_id}
-                      onChange={(e) => handleEntryChange(index, "task_id", e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-white"
-                      required
-                    >
-                      <option value="">-- اختر المهمة --</option>
-                      {tasks.map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name} (الهدف: {t.target_quantity})
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => handleEntryChange(index, "task_id", val)}
+                      options={tasks.map((t) => ({
+                        value: t.id.toString(),
+                        label: t.name,
+                        subLabel: `الهدف: ${t.target_quantity}`,
+                      }))}
+                      placeholder="-- اختر المهمة --"
+                      icon={<CheckSquare className="w-5 h-5 text-durra-green" />}
+                      className="w-full"
+                    />
                   </div>
 
                   <div className="w-full sm:w-48">

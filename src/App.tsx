@@ -15,6 +15,7 @@ import Evaluations from "./pages/Evaluations";
 import AddEvaluation from "./pages/AddEvaluation";
 import EditEvaluation from "./pages/EditEvaluation";
 import MonthlyReport from "./pages/MonthlyReport";
+import AccountStatement from "./pages/AccountStatement";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import AdminUsers from "./pages/AdminUsers";
@@ -85,6 +86,11 @@ function AnimatedRoutes() {
           <Route path="/reports" element={
             <ProtectedRoute permission="view_reports">
               <Layout><MonthlyReport /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/account-statement" element={
+            <ProtectedRoute permission="manage_workers">
+              <Layout><AccountStatement /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/admin/users" element={

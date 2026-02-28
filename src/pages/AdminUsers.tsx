@@ -166,8 +166,14 @@ export default function AdminUsers() {
 
       {/* Modal for Permissions */}
       {selectedUser && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedUser(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className="text-xl font-bold text-gray-900 mb-4">
               تعديل صلاحيات {selectedUser.username}
             </h3>

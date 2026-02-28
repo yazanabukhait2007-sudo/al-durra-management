@@ -1,0 +1,496 @@
+import React, { useState, useEffect, useRef } from "react";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
+import { FileText, Download, Plus, Trash2, X, Search } from "lucide-react";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
+import MonthPicker from "../components/MonthPicker";
+import DatePicker from "../components/DatePicker";
+import ConfirmModal from "../components/ConfirmModal";
+import { useAuth } from "../context/AuthContext";
+
+interface Worker {
+  id: number;
+  name: string;
+  salary: number;
+}
+
+interface Transaction {
+  id: number;
+  worker_id: number;
+  type: 'salary' | 'bonus' | 'deduction' | 'payment';
+  amount: number;
+  date: string;
+  description: string;
+}
+
+export default function AccountStatement() {
+  const { token } = useAuth();
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [transactions, setTransactions] = useState<Record<number, Transaction[]>>({});
+  const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [selectedWorker, setSelectedWorker] = useState<Worker | null>(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, id: number | null}>({
+    isOpen: false,
+    id: null
+  });
+
+  const [newTransaction, setNewTransaction] = useState({
+    type: 'bonus',
+    amount: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
+    description: ''
+  });
+
+  const statementRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, [selectedMonth]);
+
+  const fetchData = async () => {
+    try {
+      const workersRes = await fetch("/api/workers", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!workersRes.ok) throw new Error("Failed to fetch workers");
+      const workersData = await workersRes.json();
+      setWorkers(workersData);
+
+      const monthStr = selectedMonth;
+      const transactionsData: Record<number, Transaction[]> = {};
+
+      for (const worker of workersData) {
+        const transRes = await fetch(`/api/workers/${worker.id}/transactions?month=${monthStr}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (transRes.ok) {
+          transactionsData[worker.id] = await transRes.json();
+        }
+      }
+      setTransactions(transactionsData);
+    } catch (error) {
+      console.error("Error fetching data:", error);
+    }
+  };
+
+  const handleAddTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedWorker || !newTransaction.amount) return;
+
+    try {
+      const res = await fetch(`/api/workers/${selectedWorker.id}/transactions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...newTransaction,
+          amount: parseFloat(newTransaction.amount)
+        })
+      });
+
+      if (!res.ok) throw new Error("Failed to add transaction");
+      
+      setIsAddModalOpen(false);
+      setNewTransaction({
+        type: 'bonus',
+        amount: '',
+        date: format(new Date(), 'yyyy-MM-dd'),
+        description: ''
+      });
+      fetchData();
+    } catch (error) {
+      console.error("Error adding transaction:", error);
+      alert("حدث خطأ أثناء إضافة الحركة");
+    }
+  };
+
+  const confirmDelete = (id: number) => {
+    setDeleteModal({ isOpen: true, id });
+  };
+
+  const executeDelete = async () => {
+    if (!deleteModal.id) return;
+
+    try {
+      const res = await fetch(`/api/transactions/${deleteModal.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!res.ok) throw new Error("Failed to delete transaction");
+      fetchData();
+    } catch (error) {
+      console.error("Error deleting transaction:", error);
+      alert("حدث خطأ أثناء حذف الحركة");
+    }
+  };
+
+  const calculateNetBalance = (workerId: number) => {
+    const worker = workers.find(w => w.id === workerId);
+    let balance = worker?.salary || 0;
+    
+    const workerTransactions = transactions[workerId] || [];
+    
+    workerTransactions.forEach(t => {
+      if (t.type === 'salary' || t.type === 'bonus') {
+        balance += t.amount;
+      } else if (t.type === 'deduction' || t.type === 'payment') {
+        balance -= t.amount;
+      }
+    });
+    
+    return balance;
+  };
+
+  const handleExportPDF = async () => {
+    if (!statementRef.current) return;
+    
+    try {
+      const element = statementRef.current;
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+      });
+      
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF("p", "mm", "a4");
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`كشف_حساب_${selectedWorker?.name}_${selectedMonth}.pdf`);
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      alert("حدث خطأ أثناء إنشاء ملف PDF");
+    }
+  };
+
+  const filteredWorkers = workers.filter(w => 
+    w.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getTypeLabel = (type: string) => {
+    switch (type) {
+      case 'salary': return 'راتب';
+      case 'bonus': return 'علاوة';
+      case 'deduction': return 'خصم';
+      case 'payment': return 'دفعة';
+      default: return type;
+    }
+  };
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'salary': return 'bg-[#dbeafe] text-[#1e40af]';
+      case 'bonus': return 'bg-[#dcfce7] text-[#166534]';
+      case 'deduction': return 'bg-[#fee2e2] text-[#991b1b]';
+      case 'payment': return 'bg-[#ffedd5] text-[#9a3412]';
+      default: return 'bg-[#f3f4f6] text-[#1f2937]';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">كشف الحساب</h1>
+          <p className="text-gray-500 mt-1">إدارة رواتب وحسابات العمال</p>
+        </div>
+        <div className="w-full sm:w-auto">
+          <MonthPicker value={selectedMonth} onChange={setSelectedMonth} />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="p-4 border-b border-gray-100">
+          <div className="relative max-w-md">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
+            <input
+              type="text"
+              placeholder="ابحث عن عامل..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-right">
+            <thead className="bg-gray-50 border-b border-gray-100">
+              <tr>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">اسم العامل</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">الرصيد الصافي</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-center">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredWorkers.map((worker) => {
+                const netBalance = calculateNetBalance(worker.id);
+                return (
+                  <tr key={worker.id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-gray-900">{worker.name}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className={`font-bold ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} dir="ltr">
+                        {netBalance.toFixed(2)} د.أ
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-center gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedWorker(worker);
+                            setIsAddModalOpen(true);
+                          }}
+                          className="p-2 text-durra-green hover:bg-durra-green/10 rounded-lg transition-colors"
+                          title="إضافة حركة"
+                        >
+                          <Plus className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedWorker(worker);
+                            setIsDetailsModalOpen(true);
+                          }}
+                          className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          <FileText className="w-4 h-4" />
+                          تفاصيل
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredWorkers.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
+                    لا يوجد عمال مطابقين للبحث
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Details Modal */}
+      {isDetailsModalOpen && selectedWorker && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setIsDetailsModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">كشف حساب: {selectedWorker.name}</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleExportPDF}
+                  className="flex items-center gap-2 px-4 py-2 bg-durra-green text-white rounded-lg hover:bg-durra-green-light transition-colors"
+                >
+                  <Download className="w-4 h-4" />
+                  تحميل PDF
+                </button>
+                <button
+                  onClick={() => setIsDetailsModalOpen(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1 print-area">
+              <div ref={statementRef} className="bg-[#ffffff] p-8 rounded-xl border border-[#e5e7eb]" dir="rtl">
+                <div className="text-center mb-8">
+                  <h1 className="text-2xl font-bold text-[#111827] mb-2">كشف حساب عامل</h1>
+                  <p className="text-[#4b5563]">
+                    {format(new Date(`${selectedMonth}-01`), 'MMMM yyyy', { locale: ar })}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mb-8">
+                  <div className="bg-[#f9fafb] p-4 rounded-lg border border-[#f3f4f6]">
+                    <div className="text-sm text-[#6b7280] mb-1">اسم العامل</div>
+                    <div className="font-bold text-[#111827]">{selectedWorker.name}</div>
+                  </div>
+                  <div className="bg-[#f9fafb] p-4 rounded-lg border border-[#f3f4f6]">
+                    <div className="text-sm text-[#6b7280] mb-1">الرصيد الصافي</div>
+                    <div className={`font-bold ${calculateNetBalance(selectedWorker.id) >= 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`} dir="ltr">
+                      {calculateNetBalance(selectedWorker.id).toFixed(2)} د.أ
+                    </div>
+                  </div>
+                </div>
+
+                <table className="w-full text-right border-collapse">
+                  <thead>
+                    <tr className="bg-[#f3f4f6]">
+                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">التاريخ</th>
+                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">النوع</th>
+                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">البيان</th>
+                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">المبلغ</th>
+                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151] text-center hide-on-print">حذف</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(transactions[selectedWorker.id] || []).map((t) => (
+                      <tr key={t.id}>
+                        <td className="border border-[#e5e7eb] px-4 py-2 text-[#111827]">{format(new Date(t.date), 'yyyy-MM-dd')}</td>
+                        <td className="border border-[#e5e7eb] px-4 py-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(t.type)}`}>
+                            {getTypeLabel(t.type)}
+                          </span>
+                        </td>
+                        <td className="border border-[#e5e7eb] px-4 py-2 text-[#111827]">{t.description || '-'}</td>
+                        <td className="border border-[#e5e7eb] px-4 py-2 font-medium text-[#111827]" dir="ltr">
+                          {(t.type === 'deduction' || t.type === 'payment') ? '-' : '+'}{t.amount.toFixed(2)}
+                        </td>
+                        <td className="border border-[#e5e7eb] px-4 py-2 text-center hide-on-print">
+                          <button
+                            onClick={() => confirmDelete(t.id)}
+                            className="text-[#ef4444] hover:text-[#b91c1c] p-1"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {(transactions[selectedWorker.id] || []).length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="border border-[#e5e7eb] px-4 py-8 text-center text-[#6b7280]">
+                          لا يوجد حركات لهذا الشهر
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  <tfoot>
+                    <tr className="bg-[#f9fafb] font-bold">
+                      <td colSpan={3} className="border border-[#e5e7eb] px-4 py-3 text-left text-[#111827]">الرصيد الصافي:</td>
+                      <td className="border border-[#e5e7eb] px-4 py-3 text-[#111827]" dir="ltr">
+                        {calculateNetBalance(selectedWorker.id).toFixed(2)} د.أ
+                      </td>
+                      <td className="border border-[#e5e7eb] px-4 py-3 hide-on-print"></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Transaction Modal */}
+      {isAddModalOpen && selectedWorker && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          onClick={() => setIsAddModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-xl w-full max-w-md"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900">إضافة حركة لـ {selectedWorker.name}</h2>
+              <button
+                onClick={() => setIsAddModalOpen(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddTransaction} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">نوع الحركة</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'bonus', label: 'علاوة', activeClass: 'bg-[#dcfce7] text-[#166534] border-[#166534]' },
+                    { id: 'deduction', label: 'خصم', activeClass: 'bg-[#fee2e2] text-[#991b1b] border-[#991b1b]' },
+                    { id: 'payment', label: 'دفعة', activeClass: 'bg-[#ffedd5] text-[#9a3412] border-[#9a3412]' }
+                  ].map(type => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => setNewTransaction({...newTransaction, type: type.id as any})}
+                      className={`py-2 px-3 rounded-lg border text-sm font-medium transition-all text-center ${
+                        newTransaction.type === type.id 
+                          ? type.activeClass 
+                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                      }`}
+                    >
+                      {type.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">المبلغ</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={newTransaction.amount}
+                  onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">التاريخ</label>
+                <DatePicker
+                  value={newTransaction.date}
+                  onChange={(date) => setNewTransaction({...newTransaction, date})}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">البيان (اختياري)</label>
+                <input
+                  type="text"
+                  value={newTransaction.description}
+                  onChange={(e) => setNewTransaction({...newTransaction, description: e.target.value})}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+                />
+              </div>
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="submit"
+                  className="flex-1 bg-durra-green text-white px-4 py-2 rounded-lg hover:bg-durra-green-light transition-colors font-medium"
+                >
+                  حفظ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <ConfirmModal
+        isOpen={deleteModal.isOpen}
+        title="حذف حركة"
+        message="هل أنت متأكد من حذف هذه الحركة؟ لا يمكن التراجع عن هذا الإجراء."
+        confirmText="نعم، احذف الحركة"
+        onConfirm={executeDelete}
+        onCancel={() => setDeleteModal({ isOpen: false, id: null })}
+      />
+    </div>
+  );
+}
