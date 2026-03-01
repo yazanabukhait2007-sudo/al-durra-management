@@ -283,6 +283,23 @@ export default function AccountStatement() {
                           <FileText className="w-4 h-4" />
                           تفاصيل
                         </button>
+                        {canExportPdf && (
+                          <button
+                            onClick={async () => {
+                              setSelectedWorker(worker);
+                              // Small delay to ensure state updates and ref is ready if we were to use a shared ref
+                              // But here we can just trigger the modal export logic
+                              setIsDetailsModalOpen(true);
+                              setTimeout(() => {
+                                handleExportPDF();
+                              }, 100);
+                            }}
+                            className="p-2 text-durra-green hover:bg-durra-green/10 dark:hover:bg-durra-green/20 rounded-lg transition-colors"
+                            title="تحميل PDF"
+                          >
+                            <Download className="w-5 h-5" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

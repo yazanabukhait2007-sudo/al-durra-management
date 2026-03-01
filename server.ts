@@ -819,24 +819,45 @@ async function startServer() {
 
   // Attendance Routes
   app.get("/api/attendance", authenticateToken, requirePermission("view_attendance"), (req, res) => {
-    const { date } = req.query;
-    if (!date) return res.status(400).json({ error: "Date is required" });
+    const { date, start_date, end_date } = req.query;
 
     try {
-      const records = db.prepare(`
-        SELECT 
-          w.id as worker_id, 
-          w.name as worker_name, 
-          a.id as attendance_id, 
-          a.status, 
-          a.check_in, 
-          a.check_out, 
-          a.notes
-        FROM workers w
-        LEFT JOIN attendance a ON w.id = a.worker_id AND a.date = ?
-        ORDER BY w.name
-      `).all(date);
-      res.json(records);
+      if (date) {
+        const records = db.prepare(`
+          SELECT 
+            w.id as worker_id, 
+            w.name as worker_name, 
+            a.id as attendance_id, 
+            a.status, 
+            a.date,
+            a.check_in, 
+            a.check_out, 
+            a.notes
+          FROM workers w
+          LEFT JOIN attendance a ON w.id = a.worker_id AND a.date = ?
+          ORDER BY w.name
+        `).all(date);
+        res.json(records);
+      } else if (start_date && end_date) {
+        const records = db.prepare(`
+          SELECT 
+            a.worker_id, 
+            w.name as worker_name, 
+            a.id as attendance_id, 
+            a.status, 
+            a.date,
+            a.check_in, 
+            a.check_out, 
+            a.notes
+          FROM attendance a
+          JOIN workers w ON a.worker_id = w.id
+          WHERE a.date BETWEEN ? AND ?
+          ORDER BY a.date DESC
+        `).all(start_date, end_date);
+        res.json(records);
+      } else {
+        res.status(400).json({ error: "Date or date range (start_date & end_date) is required" });
+      }
     } catch (error) {
       console.error("Failed to fetch attendance:", error);
       res.status(500).json({ error: "Internal server error" });
@@ -847,7 +868,7 @@ async function startServer() {
     const { worker_id, date, status, check_in, check_out, notes } = req.body;
     if (!worker_id || !date || !status) return res.status(400).json({ error: "Missing fields" });
 
-    try {
+    const transaction = db.transaction(() => {
       const existing = db.prepare("SELECT id FROM attendance WHERE worker_id = ? AND date = ?").get(worker_id, date) as any;
       
       if (existing) {
@@ -856,17 +877,38 @@ async function startServer() {
           SET status = ?, check_in = ?, check_out = ?, notes = ?
           WHERE id = ?
         `).run(status, check_in || null, check_out || null, notes || null, existing.id);
-        
-        // logAudit(req.user.id, req.user.username, "UPDATE", "attendance", existing.id, `Updated attendance for worker ${worker_id} on ${date}`);
       } else {
-        const info = db.prepare(`
+        db.prepare(`
           INSERT INTO attendance (worker_id, date, status, check_in, check_out, notes)
           VALUES (?, ?, ?, ?, ?, ?)
         `).run(worker_id, date, status, check_in || null, check_out || null, notes || null);
-        
-        // logAudit(req.user.id, req.user.username, "CREATE", "attendance", info.lastInsertRowid, `Recorded attendance for worker ${worker_id} on ${date}`);
       }
-      
+
+      // Handle Account Statement (Transactions)
+      const worker = db.prepare("SELECT salary FROM workers WHERE id = ?").get(worker_id) as any;
+      const salary = worker?.salary || 0;
+      const deductionAmount = salary > 0 ? Number((salary / 30).toFixed(2)) : 0;
+      const description = `غياب - ${date}`;
+
+      if (status === 'absent') {
+        if (deductionAmount > 0) {
+          // Check if transaction already exists
+          const existingTrans = db.prepare("SELECT id FROM worker_transactions WHERE worker_id = ? AND description = ?").get(worker_id, description);
+          if (!existingTrans) {
+            db.prepare(`
+              INSERT INTO worker_transactions (worker_id, type, amount, date, description)
+              VALUES (?, 'deduction', ?, ?, ?)
+            `).run(worker_id, deductionAmount, date, description);
+          }
+        }
+      } else {
+        // If status changed from absent to something else, remove the deduction
+        db.prepare("DELETE FROM worker_transactions WHERE worker_id = ? AND description = ?").run(worker_id, description);
+      }
+    });
+
+    try {
+      transaction();
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to save attendance:", error);
@@ -900,14 +942,50 @@ async function startServer() {
     const { worker_id, date, type, start_time, end_time, notes } = req.body;
     if (!worker_id || !date || !type || !start_time) return res.status(400).json({ error: "Missing fields" });
 
-    try {
+    const transaction = db.transaction(() => {
       const info = db.prepare(`
         INSERT INTO departures (worker_id, date, type, start_time, end_time, notes)
         VALUES (?, ?, ?, ?, ?, ?)
       `).run(worker_id, date, type, start_time, end_time || null, notes || null);
-      
-      // logAudit(req.user.id, req.user.username, "CREATE", "departure", info.lastInsertRowid, `Added departure for worker ${worker_id} on ${date}`);
-      res.json({ success: true, id: info.lastInsertRowid });
+
+      if (start_time && end_time) {
+        const [h1, m1] = start_time.split(':').map(Number);
+        const [h2, m2] = end_time.split(':').map(Number);
+        let diffMinutes = (h2 * 60 + m2) - (h1 * 60 + m1);
+        if (diffMinutes < 0) diffMinutes += 24 * 60;
+        
+        const hours = Math.floor(diffMinutes / 60);
+        const mins = diffMinutes % 60;
+        
+        let durationStr = "مغادرة: ";
+        if (hours > 0) durationStr += `${hours} ساعة `;
+        if (mins > 0) durationStr += `${mins} دقيقة`;
+        
+        // Update attendance notes
+        const existingAttendance = db.prepare("SELECT id, notes FROM attendance WHERE worker_id = ? AND date = ?").get(worker_id, date) as any;
+        
+        if (existingAttendance) {
+          const newNotes = existingAttendance.notes 
+            ? `${existingAttendance.notes} | ${durationStr}`
+            : durationStr;
+          
+          db.prepare("UPDATE attendance SET notes = ? WHERE id = ?").run(newNotes, existingAttendance.id);
+        } else {
+          // Create attendance record if it doesn't exist, default to present? 
+          // Or just create it with the note.
+          db.prepare(`
+            INSERT INTO attendance (worker_id, date, status, notes)
+            VALUES (?, ?, 'present', ?)
+          `).run(worker_id, date, durationStr);
+        }
+      }
+
+      return info.lastInsertRowid;
+    });
+
+    try {
+      const id = transaction();
+      res.json({ success: true, id });
     } catch (error) {
       console.error("Failed to add departure:", error);
       res.status(500).json({ error: "Internal server error" });

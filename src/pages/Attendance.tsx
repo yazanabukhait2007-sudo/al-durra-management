@@ -1,19 +1,22 @@
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { arSA } from "date-fns/locale";
-import { Calendar, Clock, UserCheck, UserX, AlertCircle, Save, Plus, Trash2, X } from "lucide-react";
+import { Calendar, Clock, UserCheck, UserX, AlertCircle, Plus, Trash2, X, Save, FileText } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { fetchWithAuth } from "../utils/api";
 import { AttendanceRecord, DepartureRecord, Worker } from "../types";
 import Logo from "../components/Logo";
 import ConfirmModal from "../components/ConfirmModal";
+import AttendanceSheet from "./AttendanceSheet";
+import DatePicker from "../components/DatePicker";
+import TimePicker from "../components/TimePicker";
 
 export default function Attendance() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [activeTab, setActiveTab] = useState<'attendance' | 'departures'>('attendance');
+  const [activeTab, setActiveTab] = useState<'attendance' | 'departures' | 'report'>('attendance');
   const [loading, setLoading] = useState(true);
   
   // Attendance State
@@ -32,17 +35,29 @@ export default function Attendance() {
     notes: ""
   });
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
-  const [newAttendance, setNewAttendance] = useState({
-    worker_id: "",
-    status: "present",
-    check_in: format(new Date(), "HH:mm"),
-    check_out: "",
-    notes: ""
-  });
+  const [bulkAttendance, setBulkAttendance] = useState<Record<number, {
+    status: string;
+    check_in: string;
+    check_out: string;
+    notes: string;
+  }>>({});
 
   useEffect(() => {
-    fetchData();
-  }, [selectedDate]);
+    if (showAttendanceModal && workers.length > 0) {
+      const initial: Record<number, any> = {};
+      workers.forEach(w => {
+        // Check if there is already a record for this worker on the selected date
+        const existing = attendanceRecords.find(r => r.worker_id === w.id);
+        initial[w.id] = {
+          status: existing?.status || 'present',
+          check_in: existing?.check_in || format(new Date(), "HH:mm"),
+          check_out: existing?.check_out || '',
+          notes: existing?.notes || ''
+        };
+      });
+      setBulkAttendance(initial);
+    }
+  }, [showAttendanceModal, workers, attendanceRecords]);
 
   const [deleteDepartureId, setDeleteDepartureId] = useState<number | null>(null);
 
@@ -77,72 +92,7 @@ export default function Attendance() {
   // Refresh data when tab changes
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
-
-  const handleStatusChange = async (workerId: number, status: string) => {
-    // Optimistic update
-    setAttendanceRecords(prev => prev.map(rec => 
-      rec.worker_id === workerId ? { ...rec, status: status as any } : rec
-    ));
-
-    try {
-      const record = attendanceRecords.find(r => r.worker_id === workerId);
-      await fetchWithAuth("/api/attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          worker_id: workerId,
-          date: selectedDate,
-          status,
-          check_in: record?.check_in,
-          check_out: record?.check_out,
-          notes: record?.notes
-        })
-      });
-    } catch (error) {
-      console.error("Failed to update status", error);
-      showToast("فشل تحديث الحالة", "error");
-      fetchData(); // Revert on error
-    }
-  };
-
-  const handleTimeChange = (workerId: number, field: 'check_in' | 'check_out', value: string) => {
-    setAttendanceRecords(prev => prev.map(rec => 
-      rec.worker_id === workerId ? { ...rec, [field]: value } : rec
-    ));
-  };
-
-  const handleNoteChange = (workerId: number, value: string) => {
-    setAttendanceRecords(prev => prev.map(rec => 
-      rec.worker_id === workerId ? { ...rec, notes: value } : rec
-    ));
-  };
-
-  const saveAttendanceDetails = async (workerId: number) => {
-    const record = attendanceRecords.find(r => r.worker_id === workerId);
-    if (!record || !record.status) return;
-
-    try {
-      const res = await fetchWithAuth("/api/attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          worker_id: workerId,
-          date: selectedDate,
-          status: record.status,
-          check_in: record.check_in,
-          check_out: record.check_out,
-          notes: record.notes
-        })
-      });
-      
-      if (res.ok) {
-        showToast("تم حفظ التفاصيل", "success");
-      }
-    } catch (error) {
-      showToast("فشل الحفظ", "error");
-    }
-  };
+  }, [activeTab, selectedDate]);
 
   const handleAddDeparture = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,35 +144,48 @@ export default function Attendance() {
 
   const canManage = user?.role === 'admin' || user?.permissions.includes('manage_attendance');
 
+  const handleBulkChange = (workerId: number, field: string, value: any) => {
+    setBulkAttendance(prev => ({
+      ...prev,
+      [workerId]: {
+        ...prev[workerId],
+        [field]: value
+      }
+    }));
+  };
+
   const handleAddAttendance = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newAttendance.worker_id || !newAttendance.status) return;
+    setSavingAttendance(true);
 
     try {
-      const res = await fetchWithAuth("/api/attendance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...newAttendance,
-          date: selectedDate,
-          worker_id: parseInt(newAttendance.worker_id)
-        })
+      // Process all records
+      const promises = Object.entries(bulkAttendance).map(([workerId, data]) => {
+        const recordData = data as { status: string; check_in: string; check_out: string; notes: string };
+        return fetchWithAuth("/api/attendance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            worker_id: parseInt(workerId),
+            date: selectedDate,
+            status: recordData.status,
+            check_in: recordData.check_in,
+            check_out: recordData.check_out,
+            notes: recordData.notes
+          })
+        });
       });
 
-      if (res.ok) {
-        showToast("تم تسجيل الحضور بنجاح", "success");
-        setShowAttendanceModal(false);
-        setNewAttendance({
-          worker_id: "",
-          status: "present",
-          check_in: format(new Date(), "HH:mm"),
-          check_out: "",
-          notes: ""
-        });
-        fetchData();
-      }
+      await Promise.all(promises);
+      
+      showToast("تم حفظ سجل الحضور بنجاح", "success");
+      setShowAttendanceModal(false);
+      fetchData();
     } catch (error) {
-      showToast("فشل تسجيل الحضور", "error");
+      console.error("Failed to save attendance", error);
+      showToast("فشل حفظ السجل", "error");
+    } finally {
+      setSavingAttendance(false);
     }
   };
 
@@ -237,13 +200,10 @@ export default function Attendance() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">إدارة دوام الموظفين والمغادرات اليومية</p>
         </div>
         
-        <div className="flex items-center gap-4 bg-white dark:bg-gray-800 p-2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
-          <Calendar className="w-5 h-5 text-gray-500" />
-          <input
-            type="date"
+        <div className="w-full md:w-64">
+          <DatePicker
             value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="bg-transparent border-none outline-none text-gray-700 dark:text-gray-200 font-medium"
+            onChange={setSelectedDate}
           />
         </div>
       </div>
@@ -273,6 +233,19 @@ export default function Attendance() {
         >
           المغادرات
           {activeTab === 'departures' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-durra-green rounded-t-full" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('report')}
+          className={`px-6 py-3 font-medium text-sm transition-all relative ${
+            activeTab === 'report' 
+              ? 'text-durra-green' 
+              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+          }`}
+        >
+          كشف الحضور
+          {activeTab === 'report' && (
             <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-durra-green rounded-t-full" />
           )}
         </button>
@@ -322,62 +295,36 @@ export default function Attendance() {
                           { value: 'absent', label: 'غائب', color: 'bg-red-100 text-red-700 border-red-200' },
                           { value: 'vacation', label: 'إجازة', color: 'bg-blue-100 text-blue-700 border-blue-200' },
                           { value: 'sick', label: 'مرضي', color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
-                        ].map((option) => (
-                          <button
+                        ].filter(option => option.value === record.status).map((option) => (
+                          <div
                             key={option.value}
-                            onClick={() => canManage && handleStatusChange(record.worker_id, option.value)}
-                            disabled={!canManage}
                             className={`
-                              px-3 py-1.5 rounded-lg text-xs font-bold border transition-all
-                              ${record.status === option.value 
-                                ? option.color + ' shadow-sm scale-105' 
-                                : 'bg-gray-50 text-gray-500 border-transparent hover:bg-gray-100 dark:bg-gray-700 dark:text-gray-400'
-                              }
+                              px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-default
+                              ${option.color} shadow-sm
                             `}
                           >
                             {option.label}
-                          </button>
+                          </div>
                         ))}
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <input
-                        type="time"
-                        value={record.check_in || ''}
-                        onChange={(e) => handleTimeChange(record.worker_id, 'check_in', e.target.value)}
-                        disabled={!canManage || !record.status || record.status === 'absent'}
-                        className="w-full bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-durra-green outline-none py-1 text-sm disabled:opacity-50"
-                      />
+                      <span className="text-sm font-mono text-gray-700 dark:text-gray-300">
+                        {record.check_in || '-'}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
-                      <input
-                        type="time"
-                        value={record.check_out || ''}
-                        onChange={(e) => handleTimeChange(record.worker_id, 'check_out', e.target.value)}
-                        disabled={!canManage || !record.status || record.status === 'absent'}
-                        className="w-full bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-durra-green outline-none py-1 text-sm disabled:opacity-50"
-                      />
+                      <span className="text-sm font-mono text-gray-700 dark:text-gray-300">
+                        {record.check_out || '-'}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
-                      <input
-                        type="text"
-                        value={record.notes || ''}
-                        onChange={(e) => handleNoteChange(record.worker_id, e.target.value)}
-                        placeholder="ملاحظات..."
-                        disabled={!canManage}
-                        className="w-full bg-transparent border-b border-gray-200 dark:border-gray-600 focus:border-durra-green outline-none py-1 text-sm"
-                      />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {record.notes || '-'}
+                      </span>
                     </td>
                     <td className="px-6 py-4">
-                      {canManage && (record.check_in !== undefined || record.check_out !== undefined || record.notes !== undefined) && (
-                        <button
-                          onClick={() => saveAttendanceDetails(record.worker_id)}
-                          className="text-durra-green hover:bg-durra-green/10 p-2 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                          title="حفظ التفاصيل"
-                        >
-                          <Save className="w-4 h-4" />
-                        </button>
-                      )}
+                      {/* Read-only view, no actions */}
                     </td>
                   </tr>
                 ))}
@@ -385,7 +332,7 @@ export default function Attendance() {
             </table>
           </div>
         </div>
-        ) : (
+        ) : activeTab === 'departures' ? (
           <div className="p-6">
             {canManage && (
               <div className="mb-6 flex justify-end">
@@ -452,16 +399,20 @@ export default function Attendance() {
               </div>
             )}
           </div>
+        ) : (
+          <div className="p-6">
+            <AttendanceSheet isSubComponent={true} />
+          </div>
         )}
       </div>
 
       {/* Add Attendance Modal */}
       {showAttendanceModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">تسجيل حضور جديد</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white">تسجيل الحضور اليومي - {format(new Date(selectedDate), "EEEE d MMMM", { locale: arSA })}</h3>
                 <button 
                   onClick={() => setShowAttendanceModal(false)}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
@@ -469,98 +420,108 @@ export default function Attendance() {
                   <X className="w-6 h-6" />
                 </button>
               </div>
-
-              <form onSubmit={handleAddAttendance} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">الموظف</label>
-                  <select
-                    value={newAttendance.worker_id}
-                    onChange={(e) => setNewAttendance({...newAttendance, worker_id: e.target.value})}
-                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
-                    required
-                  >
-                    <option value="">اختر الموظف...</option>
-                    {workers.map(w => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">الحالة</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { value: 'present', label: 'حاضر' },
-                      { value: 'absent', label: 'غائب' },
-                      { value: 'vacation', label: 'إجازة' },
-                      { value: 'sick', label: 'مرضي' },
-                    ].map(status => (
-                      <button
-                        key={status.value}
-                        type="button"
-                        onClick={() => setNewAttendance({...newAttendance, status: status.value})}
-                        className={`py-2 rounded-xl text-sm font-medium border transition-all ${
-                          newAttendance.status === status.value
-                            ? 'bg-durra-green text-white border-durra-green'
-                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        {status.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">وقت الحضور</label>
-                    <input
-                      type="time"
-                      value={newAttendance.check_in}
-                      onChange={(e) => setNewAttendance({...newAttendance, check_in: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
-                      disabled={newAttendance.status === 'absent'}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">وقت الانصراف</label>
-                    <input
-                      type="time"
-                      value={newAttendance.check_out}
-                      onChange={(e) => setNewAttendance({...newAttendance, check_out: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
-                      disabled={newAttendance.status === 'absent'}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">ملاحظات</label>
-                  <textarea
-                    value={newAttendance.notes}
-                    onChange={(e) => setNewAttendance({...newAttendance, notes: e.target.value})}
-                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none h-24 resize-none"
-                    placeholder="ملاحظات إضافية..."
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-durra-green text-white px-6 py-2.5 rounded-xl hover:bg-durra-green-light transition-all shadow-md active:scale-95 font-bold"
-                  >
-                    حفظ السجل
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowAttendanceModal(false)}
-                    className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
-                  >
-                    إلغاء
-                  </button>
-                </div>
-              </form>
             </div>
+
+            <form onSubmit={handleAddAttendance} className="flex-1 overflow-hidden flex flex-col">
+              <div className="flex-1 overflow-y-auto p-6">
+                <div className="space-y-4">
+                  {workers.map(worker => {
+                    const data = bulkAttendance[worker.id] || { status: 'present', check_in: '', check_out: '', notes: '' };
+                    return (
+                      <div key={worker.id} className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                        <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
+                          <div className="w-full lg:w-1/4">
+                            <h4 className="font-bold text-gray-900 dark:text-white">{worker.name}</h4>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{worker.role}</p>
+                          </div>
+
+                          <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                            {/* Status */}
+                            <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-600">
+                              {[
+                                { value: 'present', label: 'حاضر' },
+                                { value: 'absent', label: 'غائب' },
+                              ].map(status => (
+                                <button
+                                  key={status.value}
+                                  type="button"
+                                  onClick={() => handleBulkChange(worker.id, 'status', status.value)}
+                                  className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                                    data.status === status.value
+                                      ? status.value === 'present' 
+                                        ? 'bg-green-100 text-green-700 shadow-sm' 
+                                        : 'bg-red-100 text-red-700 shadow-sm'
+                                      : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                  }`}
+                                >
+                                  {status.label}
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* Times */}
+                            <div className="flex gap-2">
+                              <TimePicker
+                                value={data.check_in}
+                                onChange={(val) => handleBulkChange(worker.id, 'check_in', val)}
+                                disabled={data.status === 'absent'}
+                                placeholder="دخول"
+                                className="w-full"
+                              />
+                              <TimePicker
+                                value={data.check_out}
+                                onChange={(val) => handleBulkChange(worker.id, 'check_out', val)}
+                                disabled={data.status === 'absent'}
+                                placeholder="خروج"
+                                className="w-full"
+                              />
+                            </div>
+
+                            {/* Notes */}
+                            <div className="lg:col-span-2">
+                              <input
+                                type="text"
+                                value={data.notes}
+                                onChange={(e) => handleBulkChange(worker.id, 'notes', e.target.value)}
+                                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:border-durra-green outline-none"
+                                placeholder="ملاحظات..."
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex gap-3">
+                <button
+                  type="submit"
+                  disabled={savingAttendance}
+                  className="flex-1 bg-durra-green text-white px-6 py-3 rounded-xl hover:bg-durra-green-light transition-all shadow-md active:scale-95 font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {savingAttendance ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      جاري الحفظ...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5" />
+                      حفظ سجل الحضور
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAttendanceModal(false)}
+                  className="px-6 py-3 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium"
+                >
+                  إلغاء
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -623,21 +584,16 @@ export default function Attendance() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">وقت الخروج</label>
-                    <input
-                      type="time"
+                    <TimePicker
                       value={newDeparture.start_time}
-                      onChange={(e) => setNewDeparture({...newDeparture, start_time: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
-                      required
+                      onChange={(val) => setNewDeparture({...newDeparture, start_time: val})}
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">وقت العودة (اختياري)</label>
-                    <input
-                      type="time"
+                    <TimePicker
                       value={newDeparture.end_time}
-                      onChange={(e) => setNewDeparture({...newDeparture, end_time: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+                      onChange={(val) => setNewDeparture({...newDeparture, end_time: val})}
                     />
                   </div>
                 </div>

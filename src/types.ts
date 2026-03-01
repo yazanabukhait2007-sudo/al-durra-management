@@ -60,6 +60,7 @@ export interface MonthlyReportItem {
 export interface AttendanceRecord {
   worker_id: number;
   worker_name: string;
+  date: string;
   attendance_id?: number;
   status: 'present' | 'absent' | 'vacation' | 'sick' | 'unpaid' | null;
   check_in?: string;

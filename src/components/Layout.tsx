@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet, Menu, X, Settings, ChevronRight, ChevronLeft, Activity, Clock } from "lucide-react";
+import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet, Menu, X, Settings, ChevronRight, ChevronLeft, Activity, Clock, FileText } from "lucide-react";
 import Logo from "./Logo";
 import { useAuth } from "../context/AuthContext";
 
