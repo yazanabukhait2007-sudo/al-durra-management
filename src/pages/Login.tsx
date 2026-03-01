@@ -1,23 +1,29 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { motion } from "motion/react";
 import Logo from "../components/Logo";
 import { User, Lock, LogIn, Eye, EyeOff } from "lucide-react";
 
+import { useTheme } from "../context/ThemeContext";
+
 export default function Login() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const { user, login } = useAuth();
+  const { showToast } = useToast();
+  const { setTheme } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
+    setTheme("light");
     if (user) {
       navigate("/");
     }
-  }, [user, navigate]);
+  }, [user, navigate, setTheme]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,20 +33,23 @@ export default function Login() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
 
       if (res.ok) {
         login(data.token, data.user);
+        showToast(`مرحباً بك مجدداً، ${data.user.username}`, "success");
         navigate("/");
       } else {
         setError(data.error || "فشل تسجيل الدخول");
+        showToast(data.error || "فشل تسجيل الدخول", "error");
       }
     } catch (err) {
       console.error("Login error:", err);
       setError("حدث خطأ في الاتصال");
+      showToast("حدث خطأ في الاتصال", "error");
     }
   };
 
@@ -79,19 +88,19 @@ export default function Login() {
             
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                اسم المستخدم
+                البريد الإلكتروني
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
                   <User className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
-                  type="text"
+                  type="email"
                   required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="block w-full pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white outline-none"
-                  placeholder="أدخل اسم المستخدم..."
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="block w-full pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none"
+                  placeholder="أدخل البريد الإلكتروني..."
                 />
               </div>
             </div>
@@ -109,7 +118,7 @@ export default function Login() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pr-12 pl-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white outline-none"
+                  className="block w-full pr-12 pl-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none"
                   placeholder="أدخل كلمة المرور..."
                 />
                 <button

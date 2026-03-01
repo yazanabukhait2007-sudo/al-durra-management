@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { MonthlyReportItem } from "../types";
-import { Download, Calendar as CalendarIcon } from "lucide-react";
+import { Download, Calendar as CalendarIcon, Eye } from "lucide-react";
 import { format } from "date-fns";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
 import Logo from "../components/Logo";
 import MonthPicker from "../components/MonthPicker";
+import WorkLogModal from "../components/WorkLogModal";
 import { fetchWithAuth } from "../utils/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -16,6 +17,12 @@ export default function MonthlyReport() {
   const [loading, setLoading] = useState(true);
   const [month, setMonth] = useState(() => format(new Date(), "yyyy-MM"));
   const reportRef = useRef<HTMLDivElement>(null);
+  
+  const [logModal, setLogModal] = useState<{isOpen: boolean, type: 'daily' | 'monthly', data: any}>({
+    isOpen: false,
+    type: 'monthly',
+    data: {}
+  });
 
   useEffect(() => {
     fetchReport();
@@ -64,12 +71,13 @@ export default function MonthlyReport() {
   };
 
   const canExportPdf = user?.role === 'admin' || user?.permissions.includes('export_pdf');
+  const canViewLogs = user?.role === 'admin' || user?.permissions.includes('view_work_logs');
 
   return (
     <div dir="rtl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-gray-900">التقرير الشهري</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">التقرير الشهري</h1>
           <Logo className="scale-75 origin-right hidden sm:flex" />
         </div>
         {canExportPdf && (
@@ -84,48 +92,51 @@ export default function MonthlyReport() {
         )}
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 flex flex-col sm:flex-row gap-4 items-end">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-8 flex flex-col sm:flex-row gap-4 items-end">
         <div className="flex-1 w-full max-w-xs">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             الشهر
           </label>
           <MonthPicker value={month} onChange={setMonth} />
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <table className="w-full text-right">
-          <thead className="bg-gray-50 border-b border-gray-100">
+          <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
             <tr>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">العامل</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">أيام العمل</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600">متوسط التقييم الشهري</th>
+              <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">العامل</th>
+              <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">أيام العمل</th>
+              <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">متوسط التقييم الشهري</th>
+              {canViewLogs && (
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 w-32">إجراء</th>
+              )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
             {loading ? (
               <tr>
-                <td colSpan={3} className="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
+                <td colSpan={canViewLogs ? 4 : 3} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">جاري التحميل...</td>
               </tr>
             ) : report.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-6 py-8 text-center text-gray-500">لا يوجد بيانات لهذا الشهر</td>
+                <td colSpan={canViewLogs ? 4 : 3} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">لا يوجد بيانات لهذا الشهر</td>
               </tr>
             ) : (
               report.map((item) => (
-                <tr key={item.worker_id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 text-sm text-gray-900 font-medium">
+                <tr key={item.worker_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium">
                     {item.worker_name}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    <span className="bg-durra-green/10 text-durra-green px-3 py-1 rounded-full font-medium">
+                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                    <span className="bg-durra-green/10 dark:bg-durra-green/20 text-durra-green dark:text-durra-green-light px-3 py-1 rounded-full font-medium">
                       {item.days_worked} أيام
                     </span>
                   </td>
                   <td className="px-6 py-4">
                     {item.average_score !== null ? (
                       <div className="flex items-center gap-3">
-                        <div className="w-full max-w-[150px] bg-gray-200 rounded-full h-2.5">
+                        <div className="w-full max-w-[150px] bg-gray-200 dark:bg-gray-600 rounded-full h-2.5">
                           <div
                             className={`h-2.5 rounded-full ${
                               item.average_score >= 80 ? 'bg-durra-green' :
@@ -134,7 +145,7 @@ export default function MonthlyReport() {
                             style={{ width: `${Math.min(item.average_score, 100)}%` }}
                           ></div>
                         </div>
-                        <span className="text-sm font-bold text-gray-700">
+                        <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
                           {item.average_score.toFixed(1)}%
                         </span>
                       </div>
@@ -142,6 +153,27 @@ export default function MonthlyReport() {
                       <span className="text-sm text-gray-400 italic">لم يعمل</span>
                     )}
                   </td>
+                  {canViewLogs && (
+                    <td className="px-6 py-4">
+                      {item.average_score !== null && (
+                        <button
+                          onClick={() => setLogModal({ 
+                            isOpen: true, 
+                            type: 'monthly', 
+                            data: { 
+                              workerId: item.worker_id, 
+                              workerName: item.worker_name, 
+                              month: month 
+                            } 
+                          })}
+                          className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                          title="عرض سجل العمل الشهري"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -188,6 +220,12 @@ export default function MonthlyReport() {
           </div>
         </div>
       </div>
+      <WorkLogModal
+        isOpen={logModal.isOpen}
+        onClose={() => setLogModal({ ...logModal, isOpen: false })}
+        type={logModal.type}
+        data={logModal.data}
+      />
     </div>
   );
 }

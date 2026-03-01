@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet, Menu, X, Settings, ChevronRight, ChevronLeft } from "lucide-react";
+import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet, Menu, X, Settings, ChevronRight, ChevronLeft, Activity } from "lucide-react";
 import Logo from "./Logo";
 import { useAuth } from "../context/AuthContext";
 
@@ -24,6 +24,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: "التقرير الشهري", href: "/reports", icon: BarChart3, permission: "view_reports" },
     { name: "كشف حساب", href: "/account-statement", icon: Wallet, permission: "view_account_statements" },
     { name: "إدارة المستخدمين", href: "/admin/users", icon: ShieldAlert, permission: "manage_users" },
+    { name: "سجل النشاطات", href: "/admin/audit-logs", icon: Activity, permission: "view_audit_logs" },
   ];
 
   const filteredNavigation = navigation.filter((item) => {
@@ -33,7 +34,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   });
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col md:flex-row font-sans" dir="rtl">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex flex-col md:flex-row font-sans transition-colors duration-300" dir="rtl">
       {/* Mobile Header */}
       <div className="md:hidden bg-gradient-to-r from-durra-green to-durra-green-light text-white p-4 flex justify-between items-center shadow-lg z-20 sticky top-0">
         <div className="flex items-center gap-3">
@@ -69,7 +70,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         flex flex-col overflow-hidden border-l border-white/5
       `}>
         {/* Sidebar Header */}
-        <div className={`flex items-center justify-center h-24 border-b border-white/10 transition-all duration-300 ${isDesktopSidebarOpen ? 'px-6' : 'px-2'}`}>
+        <div className={`flex items-center justify-center h-24 border-b border-white/10 transition-all duration-300 ${isDesktopSidebarOpen ? 'px-6' : 'px-2'} relative`}>
+          {/* Desktop Sidebar Toggle Button */}
+          <button 
+            onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
+            className="hidden md:flex absolute top-4 left-4 p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all z-40 border border-white/10 group"
+            title={isDesktopSidebarOpen ? "تصغير القائمة" : "توسيع القائمة"}
+          >
+            {isDesktopSidebarOpen ? (
+              <ChevronRight className="h-4 w-4 group-hover:scale-110 transition-transform" />
+            ) : (
+              <Menu className="h-4 w-4 group-hover:scale-110 transition-transform" />
+            )}
+          </button>
+
           {isDesktopSidebarOpen && (
             <div className="flex flex-col items-center animate-fadeIn">
               <Logo className="mb-2 scale-90" />
@@ -151,21 +165,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden relative min-h-[calc(100vh-64px)] md:min-h-screen transition-all duration-300">
         
-        {/* Desktop Sidebar Toggle */}
-        <div className="hidden md:block absolute top-6 right-6 z-20">
-          <button 
-            onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
-            className="p-2 bg-white text-durra-green rounded-full shadow-lg hover:shadow-xl hover:bg-gray-50 transition-all border border-gray-100 group"
-            title={isDesktopSidebarOpen ? "تصغير القائمة" : "توسيع القائمة"}
-          >
-            {isDesktopSidebarOpen ? (
-              <ChevronRight className="h-5 w-5 group-hover:scale-110 transition-transform" />
-            ) : (
-              <Menu className="h-5 w-5 group-hover:scale-110 transition-transform" />
-            )}
-          </button>
-        </div>
-
         {/* Watermark Logo */}
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.03] z-0 overflow-hidden">
           <Logo className="scale-[5] rotate-[-15deg] grayscale" />

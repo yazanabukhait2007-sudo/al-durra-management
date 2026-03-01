@@ -7,6 +7,8 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { ThemeProvider } from "./context/ThemeContext";
+import { ToastProvider } from "./context/ToastContext";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Workers from "./pages/Workers";
@@ -20,6 +22,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Settings from "./pages/Settings";
 import AdminUsers from "./pages/AdminUsers";
+import AuditLogs from "./pages/AuditLogs";
 
 function ProtectedRoute({ children, permission }: { children: React.ReactNode, permission?: string }) {
   const { user, loading } = useAuth();
@@ -99,6 +102,11 @@ function AnimatedRoutes() {
               <Layout><AdminUsers /></Layout>
             </ProtectedRoute>
           } />
+          <Route path="/admin/audit-logs" element={
+            <ProtectedRoute permission="view_audit_logs">
+              <Layout><AuditLogs /></Layout>
+            </ProtectedRoute>
+          } />
           <Route path="/settings" element={
             <ProtectedRoute>
               <Layout><Settings /></Layout>
@@ -113,9 +121,13 @@ function AnimatedRoutes() {
 export default function App() {
   return (
     <AuthProvider>
-      <Router>
-        <AnimatedRoutes />
-      </Router>
+      <ThemeProvider>
+        <ToastProvider>
+          <Router>
+            <AnimatedRoutes />
+          </Router>
+        </ToastProvider>
+      </ThemeProvider>
     </AuthProvider>
   );
 }

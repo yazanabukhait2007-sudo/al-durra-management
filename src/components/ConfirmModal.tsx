@@ -31,7 +31,7 @@ export default function ConfirmModal({
       onClick={onCancel}
     >
       <div 
-        className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200"
+        className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-6">
@@ -47,14 +47,14 @@ export default function ConfirmModal({
             </button>
           </div>
           
-          <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
-          <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">{message}</p>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{title}</h3>
+          <p className="text-gray-600 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{message}</p>
         </div>
         
-        <div className="bg-gray-50 px-6 py-4 flex gap-3 justify-end border-t border-gray-100">
+        <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 flex gap-3 justify-end border-t border-gray-100 dark:border-gray-700">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors font-medium shadow-sm"
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors font-medium shadow-sm"
           >
             {cancelText}
           </button>

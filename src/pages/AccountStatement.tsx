@@ -8,6 +8,7 @@ import MonthPicker from "../components/MonthPicker";
 import DatePicker from "../components/DatePicker";
 import ConfirmModal from "../components/ConfirmModal";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import Logo from "../components/Logo";
 
 interface Worker {
@@ -27,6 +28,7 @@ interface Transaction {
 
 export default function AccountStatement() {
   const { token, user } = useAuth();
+  const { showToast } = useToast();
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [transactions, setTransactions] = useState<Record<number, Transaction[]>>({});
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -105,9 +107,10 @@ export default function AccountStatement() {
         description: ''
       });
       fetchData();
+      showToast("تم إضافة الحركة بنجاح", "success");
     } catch (error) {
       console.error("Error adding transaction:", error);
-      alert("حدث خطأ أثناء إضافة الحركة");
+      showToast("حدث خطأ أثناء إضافة الحركة", "error");
     }
   };
 
@@ -126,9 +129,10 @@ export default function AccountStatement() {
 
       if (!res.ok) throw new Error("Failed to delete transaction");
       fetchData();
+      showToast("تم حذف الحركة بنجاح", "success");
     } catch (error) {
       console.error("Error deleting transaction:", error);
-      alert("حدث خطأ أثناء حذف الحركة");
+      showToast("حدث خطأ أثناء حذف الحركة", "error");
     }
   };
 
@@ -172,9 +176,10 @@ export default function AccountStatement() {
 
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       pdf.save(`كشف_حساب_${selectedWorker?.name}_${selectedMonth}.pdf`);
+      showToast("تم تصدير ملف PDF بنجاح", "success");
     } catch (error) {
       console.error("PDF Export Error:", error);
-      alert("حدث خطأ أثناء تصدير الملف");
+      showToast("حدث خطأ أثناء تصدير الملف", "error");
     }
   };
 
@@ -194,11 +199,11 @@ export default function AccountStatement() {
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case 'salary': return 'bg-[#dbeafe] text-[#1e40af]';
-      case 'bonus': return 'bg-[#dcfce7] text-[#166534]';
-      case 'deduction': return 'bg-[#fee2e2] text-[#991b1b]';
-      case 'payment': return 'bg-[#ffedd5] text-[#9a3412]';
-      default: return 'bg-[#f3f4f6] text-[#1f2937]';
+      case 'salary': return 'bg-[#dbeafe] text-[#1e40af] dark:bg-blue-900/30 dark:text-blue-400';
+      case 'bonus': return 'bg-[#dcfce7] text-[#166534] dark:bg-green-900/30 dark:text-green-400';
+      case 'deduction': return 'bg-[#fee2e2] text-[#991b1b] dark:bg-red-900/30 dark:text-red-400';
+      case 'payment': return 'bg-[#ffedd5] text-[#9a3412] dark:bg-orange-900/30 dark:text-orange-400';
+      default: return 'bg-[#f3f4f6] text-[#1f2937] dark:bg-gray-700 dark:text-gray-300';
     }
   };
 
@@ -207,19 +212,19 @@ export default function AccountStatement() {
   const canExportPdf = user?.role === 'admin' || user?.permissions.includes('export_pdf');
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+    <div className="space-y-6" dir="rtl">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">كشف الحساب</h1>
-          <p className="text-gray-500 mt-1">إدارة رواتب وحسابات العمال</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">كشف الحساب</h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">إدارة رواتب وحسابات العمال</p>
         </div>
         <div className="w-full sm:w-auto">
           <MonthPicker value={selectedMonth} onChange={setSelectedMonth} />
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="p-4 border-b border-gray-100">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+        <div className="p-4 border-b border-gray-100 dark:border-gray-700">
           <div className="relative max-w-md">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 h-5 w-5" />
             <input
@@ -227,30 +232,30 @@ export default function AccountStatement() {
               placeholder="ابحث عن عامل..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+              className="w-full pl-4 pr-10 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
             />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-right">
-            <thead className="bg-gray-50 border-b border-gray-100">
+            <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
               <tr>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">اسم العامل</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600">الرصيد الصافي</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-center">الإجراءات</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">اسم العامل</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">الرصيد الصافي</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 text-center">الإجراءات</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {filteredWorkers.map((worker) => {
                 const netBalance = calculateNetBalance(worker.id);
                 return (
-                  <tr key={worker.id} className="hover:bg-gray-50/50 transition-colors">
+                  <tr key={worker.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{worker.name}</div>
+                      <div className="font-medium text-gray-900 dark:text-white">{worker.name}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className={`font-bold ${netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} dir="ltr">
+                      <div className={`font-bold ${netBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} dir="ltr">
                         {netBalance.toFixed(2)} د.أ
                       </div>
                     </td>
@@ -262,7 +267,7 @@ export default function AccountStatement() {
                               setSelectedWorker(worker);
                               setIsAddModalOpen(true);
                             }}
-                            className="p-2 text-durra-green hover:bg-durra-green/10 rounded-lg transition-colors"
+                            className="p-2 text-durra-green hover:bg-durra-green/10 dark:hover:bg-durra-green/20 rounded-lg transition-colors"
                             title="إضافة حركة"
                           >
                             <Plus className="w-5 h-5" />
@@ -273,7 +278,7 @@ export default function AccountStatement() {
                             setSelectedWorker(worker);
                             setIsDetailsModalOpen(true);
                           }}
-                          className="flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors text-sm font-medium"
+                          className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-sm font-medium"
                         >
                           <FileText className="w-4 h-4" />
                           تفاصيل
@@ -285,7 +290,7 @@ export default function AccountStatement() {
               })}
               {filteredWorkers.length === 0 && (
                 <tr>
-                  <td colSpan={3} className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan={3} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
                     لا يوجد عمال مطابقين للبحث
                   </td>
                 </tr>
@@ -298,15 +303,15 @@ export default function AccountStatement() {
       {/* Details Modal */}
       {isDetailsModalOpen && selectedWorker && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           onClick={() => setIsDetailsModalOpen(false)}
         >
           <div 
-            className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col"
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">كشف حساب: {selectedWorker.name}</h2>
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">كشف حساب: {selectedWorker.name}</h2>
               <div className="flex gap-2">
                 {canExportPdf && (
                   <button
@@ -319,7 +324,7 @@ export default function AccountStatement() {
                 )}
                 <button
                   onClick={() => setIsDetailsModalOpen(false)}
-                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -368,7 +373,12 @@ export default function AccountStatement() {
                         <tr key={t.id}>
                           <td className="border border-[#e5e7eb] px-4 py-2 text-[#111827]">{format(new Date(t.date), 'yyyy-MM-dd')}</td>
                           <td className="border border-[#e5e7eb] px-4 py-2">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(t.type)}`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              t.type === 'salary' ? 'bg-[#dbeafe] text-[#1e40af]' :
+                              t.type === 'bonus' ? 'bg-[#dcfce7] text-[#166534]' :
+                              t.type === 'deduction' ? 'bg-[#fee2e2] text-[#991b1b]' :
+                              'bg-[#ffedd5] text-[#9a3412]'
+                            }`}>
                               {getTypeLabel(t.type)}
                             </span>
                           </td>
@@ -403,89 +413,79 @@ export default function AccountStatement() {
               </div>
               
               {/* Visible UI for Modal */}
-              <div className="bg-[#ffffff] p-8 rounded-xl border border-[#e5e7eb]" dir="rtl">
-                <div className="flex justify-between items-center mb-8 border-b-2 border-[#006838] pb-4">
-                  <div>
-                    <h1 className="text-2xl font-bold text-[#006838] mb-2">كشف حساب عامل</h1>
-                    <p className="text-[#4b5563]">
-                      {format(new Date(`${selectedMonth}-01`), 'MMMM yyyy', { locale: ar })}
-                    </p>
-                  </div>
-                  <div className="scale-100 origin-left">
-                    <Logo noShadow={true} />
-                  </div>
-                </div>
-
+              <div className="bg-white dark:bg-gray-800 p-0 sm:p-4 rounded-xl" dir="rtl">
                 <div className="grid grid-cols-2 gap-4 mb-8">
-                  <div className="bg-[#f9fafb] p-4 rounded-lg border border-[#f3f4f6]">
-                    <div className="text-sm text-[#6b7280] mb-1">اسم العامل</div>
-                    <div className="font-bold text-[#111827]">{selectedWorker.name}</div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">اسم العامل</div>
+                    <div className="font-bold text-gray-900 dark:text-white">{selectedWorker.name}</div>
                   </div>
-                  <div className="bg-[#f9fafb] p-4 rounded-lg border border-[#f3f4f6]">
-                    <div className="text-sm text-[#6b7280] mb-1">الرصيد الصافي</div>
-                    <div className={`font-bold ${calculateNetBalance(selectedWorker.id) >= 0 ? 'text-[#16a34a]' : 'text-[#dc2626]'}`} dir="ltr">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-4 rounded-lg border border-gray-100 dark:border-gray-700">
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">الرصيد الصافي</div>
+                    <div className={`font-bold ${calculateNetBalance(selectedWorker.id) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`} dir="ltr">
                       {calculateNetBalance(selectedWorker.id).toFixed(2)} د.أ
                     </div>
                   </div>
                 </div>
 
-                <table className="w-full text-right border-collapse">
-                  <thead>
-                    <tr className="bg-[#f3f4f6]">
-                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">التاريخ</th>
-                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">النوع</th>
-                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">البيان</th>
-                      <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151]">المبلغ</th>
-                      {canDeleteTransaction && (
-                        <th className="border border-[#e5e7eb] px-4 py-2 font-semibold text-[#374151] text-center">حذف</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(transactions[selectedWorker.id] || []).map((t) => (
-                      <tr key={t.id}>
-                        <td className="border border-[#e5e7eb] px-4 py-2 text-[#111827]">{format(new Date(t.date), 'yyyy-MM-dd')}</td>
-                        <td className="border border-[#e5e7eb] px-4 py-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(t.type)}`}>
-                            {getTypeLabel(t.type)}
-                          </span>
-                        </td>
-                        <td className="border border-[#e5e7eb] px-4 py-2 text-[#111827]">{t.description || '-'}</td>
-                        <td className="border border-[#e5e7eb] px-4 py-2 font-medium text-[#111827]" dir="ltr">
-                          {(t.type === 'deduction' || t.type === 'payment') ? '-' : '+'}{t.amount.toFixed(2)}
-                        </td>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right border-collapse">
+                    <thead>
+                      <tr className="bg-gray-50 dark:bg-gray-700/50">
+                        <th className="border border-gray-100 dark:border-gray-700 px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">التاريخ</th>
+                        <th className="border border-gray-100 dark:border-gray-700 px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">النوع</th>
+                        <th className="border border-gray-100 dark:border-gray-700 px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">البيان</th>
+                        <th className="border border-gray-100 dark:border-gray-700 px-4 py-2 font-semibold text-gray-600 dark:text-gray-300">المبلغ</th>
                         {canDeleteTransaction && (
-                          <td className="border border-[#e5e7eb] px-4 py-2 text-center">
-                            <button
-                              onClick={() => confirmDelete(t.id)}
-                              className="text-[#ef4444] hover:text-[#b91c1c] p-1"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </td>
+                          <th className="border border-gray-100 dark:border-gray-700 px-4 py-2 font-semibold text-gray-600 dark:text-gray-300 text-center">حذف</th>
                         )}
                       </tr>
-                    ))}
-                    {(transactions[selectedWorker.id] || []).length === 0 && (
-                      <tr>
-                        <td colSpan={canDeleteTransaction ? 5 : 4} className="border border-[#e5e7eb] px-4 py-8 text-center text-[#6b7280]">
-                          لا يوجد حركات لهذا الشهر
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-[#f9fafb] font-bold">
-                      <td colSpan={3} className="border border-[#e5e7eb] px-4 py-3 text-left text-[#111827]">الرصيد الصافي:</td>
-                      <td className="border border-[#e5e7eb] px-4 py-3 text-[#111827]" dir="ltr">
-                        {calculateNetBalance(selectedWorker.id).toFixed(2)} د.أ
-                      </td>
-                      {canDeleteTransaction && (
-                        <td className="border border-[#e5e7eb] px-4 py-3"></td>
+                    </thead>
+                    <tbody>
+                      {(transactions[selectedWorker.id] || []).map((t) => (
+                        <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                          <td className="border border-gray-100 dark:border-gray-700 px-4 py-2 text-gray-900 dark:text-white">{format(new Date(t.date), 'yyyy-MM-dd')}</td>
+                          <td className="border border-gray-100 dark:border-gray-700 px-4 py-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(t.type)}`}>
+                              {getTypeLabel(t.type)}
+                            </span>
+                          </td>
+                          <td className="border border-gray-100 dark:border-gray-700 px-4 py-2 text-gray-900 dark:text-white">{t.description || '-'}</td>
+                          <td className="border border-gray-100 dark:border-gray-700 px-4 py-2 font-medium text-gray-900 dark:text-white" dir="ltr">
+                            {(t.type === 'deduction' || t.type === 'payment') ? '-' : '+'}{t.amount.toFixed(2)}
+                          </td>
+                          {canDeleteTransaction && (
+                            <td className="border border-gray-100 dark:border-gray-700 px-4 py-2 text-center">
+                              <button
+                                onClick={() => confirmDelete(t.id)}
+                                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-1"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                      {(transactions[selectedWorker.id] || []).length === 0 && (
+                        <tr>
+                          <td colSpan={canDeleteTransaction ? 5 : 4} className="border border-gray-100 dark:border-gray-700 px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                            لا يوجد حركات لهذا الشهر
+                          </td>
+                        </tr>
                       )}
-                    </tr>
-                  </tfoot>
-                </table>
+                    </tbody>
+                    <tfoot>
+                      <tr className="bg-gray-50 dark:bg-gray-700/50 font-bold">
+                        <td colSpan={3} className="border border-gray-100 dark:border-gray-700 px-4 py-3 text-left text-gray-900 dark:text-white">الرصيد الصافي:</td>
+                        <td className="border border-gray-100 dark:border-gray-700 px-4 py-3 text-gray-900 dark:text-white" dir="ltr">
+                          {calculateNetBalance(selectedWorker.id).toFixed(2)} د.أ
+                        </td>
+                        {canDeleteTransaction && (
+                          <td className="border border-gray-100 dark:border-gray-700 px-4 py-3"></td>
+                        )}
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
               </div>
             </div>
           </div>
@@ -495,30 +495,30 @@ export default function AccountStatement() {
       {/* Add Transaction Modal */}
       {isAddModalOpen && selectedWorker && (
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           onClick={() => setIsAddModalOpen(false)}
         >
           <div 
-            className="bg-white rounded-2xl shadow-xl w-full max-w-md"
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">إضافة حركة لـ {selectedWorker.name}</h2>
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">إضافة حركة لـ {selectedWorker.name}</h2>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleAddTransaction} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">نوع الحركة</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">نوع الحركة</label>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    { id: 'bonus', label: 'علاوة', activeClass: 'bg-[#dcfce7] text-[#166534] border-[#166534]' },
-                    { id: 'deduction', label: 'خصم', activeClass: 'bg-[#fee2e2] text-[#991b1b] border-[#991b1b]' },
-                    { id: 'payment', label: 'دفعة', activeClass: 'bg-[#ffedd5] text-[#9a3412] border-[#9a3412]' }
+                    { id: 'bonus', label: 'علاوة', activeClass: 'bg-[#dcfce7] text-[#166534] border-[#166534] dark:bg-green-900/30 dark:text-green-400 dark:border-green-500' },
+                    { id: 'deduction', label: 'خصم', activeClass: 'bg-[#fee2e2] text-[#991b1b] border-[#991b1b] dark:bg-red-900/30 dark:text-red-400 dark:border-red-500' },
+                    { id: 'payment', label: 'دفعة', activeClass: 'bg-[#ffedd5] text-[#9a3412] border-[#9a3412] dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-500' }
                   ].map(type => (
                     <button
                       key={type.id}
@@ -527,7 +527,7 @@ export default function AccountStatement() {
                       className={`py-2 px-3 rounded-lg border text-sm font-medium transition-all text-center ${
                         newTransaction.type === type.id 
                           ? type.activeClass 
-                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                          : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
                       }`}
                     >
                       {type.label}
@@ -536,31 +536,31 @@ export default function AccountStatement() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">المبلغ</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">المبلغ</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
                   value={newTransaction.amount}
                   onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">التاريخ</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">التاريخ</label>
                 <DatePicker
                   value={newTransaction.date}
                   onChange={(date) => setNewTransaction({...newTransaction, date})}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">البيان (اختياري)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">البيان (اختياري)</label>
                 <input
                   type="text"
                   value={newTransaction.description}
                   onChange={(e) => setNewTransaction({...newTransaction, description: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
                 />
               </div>
               <div className="pt-4 flex gap-3">
@@ -573,7 +573,7 @@ export default function AccountStatement() {
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                  className="flex-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
                 >
                   إلغاء
                 </button>

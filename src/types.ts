@@ -1,7 +1,7 @@
 export interface User {
   id: number;
-  username: string;
-  email?: string;
+  username?: string;
+  email: string;
   role: "admin" | "user";
   permissions: string[];
   status: "pending" | "approved" | "rejected";

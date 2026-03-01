@@ -58,7 +58,7 @@ export default function CustomSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50 text-gray-700 font-medium transition-all hover:border-durra-green/50 text-right ${
+        className={`w-full flex items-center justify-between py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium transition-all hover:border-durra-green/50 text-right ${
           icon ? "pr-11 pl-4" : "px-4"
         }`}
       >
@@ -76,14 +76,14 @@ export default function CustomSelect({
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
           {searchable && (
-            <div className="p-2 border-b border-gray-100 bg-gray-50/50">
+            <div className="p-2 border-b border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-700/50">
               <div className="relative">
                 <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  className="w-full pr-9 pl-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-durra-green focus:ring-1 focus:ring-durra-green transition-shadow"
+                  className="w-full pr-9 pl-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:border-durra-green focus:ring-1 focus:ring-durra-green transition-shadow dark:text-white"
                   placeholder="بحث..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -104,7 +104,7 @@ export default function CustomSelect({
                   className={`w-full text-right px-4 py-2.5 rounded-lg text-sm transition-colors flex flex-col ${
                     value === opt.value
                       ? "bg-durra-green/10 text-durra-green font-bold"
-                      : "text-gray-700 hover:bg-gray-50"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                   }`}
                 >
                   <span>{opt.label}</span>

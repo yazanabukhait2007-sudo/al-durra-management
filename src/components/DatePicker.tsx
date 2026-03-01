@@ -52,7 +52,7 @@ export default function DatePicker({ value, onChange, className = "" }: DatePick
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between pl-4 pr-11 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50 text-gray-700 font-medium transition-all hover:border-durra-green/50 text-right"
+        className="w-full flex items-center justify-between pl-4 pr-11 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium transition-all hover:border-durra-green/50 text-right"
       >
         <span>{getDisplayValue()}</span>
         <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
@@ -61,24 +61,24 @@ export default function DatePicker({ value, onChange, className = "" }: DatePick
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-full min-w-[280px] bg-white rounded-xl shadow-lg border border-gray-100 p-4">
+        <div className="absolute z-50 mt-2 w-full min-w-[280px] bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between mb-4">
             <button
               type="button"
               onClick={handlePrevMonth}
-              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
-              <ChevronRight className="w-5 h-5 text-gray-600" />
+              <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
             </button>
-            <span className="font-bold text-gray-800">
+            <span className="font-bold text-gray-800 dark:text-white">
               {format(viewDate, "MMMM yyyy", { locale: ar })}
             </span>
             <button
               type="button"
               onClick={handleNextMonth}
-              className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
+              <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
             </button>
           </div>
           
@@ -111,7 +111,7 @@ export default function DatePicker({ value, onChange, className = "" }: DatePick
                       ? "bg-durra-green text-white font-bold shadow-sm"
                       : isToday
                       ? "bg-durra-green/10 text-durra-green font-bold hover:bg-durra-green/20"
-                      : "hover:bg-gray-100 text-gray-700"
+                      : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
                   }`}
                 >
                   {day}

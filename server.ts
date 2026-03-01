@@ -73,6 +73,17 @@ db.exec(`
     description TEXT,
     FOREIGN KEY (worker_id) REFERENCES workers(id)
   );
+
+  CREATE TABLE IF NOT EXISTS audit_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER,
+    username TEXT,
+    action TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id INTEGER,
+    details TEXT,
+    timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Add columns if they don't exist (for existing databases)
@@ -91,11 +102,61 @@ if (!adminExists) {
     hashedAdmin, 
     "approved", 
     "admin", 
-    JSON.stringify(["manage_workers", "manage_tasks", "manage_evaluations", "view_reports", "manage_users"])
+    JSON.stringify(["manage_workers", "manage_tasks", "manage_evaluations", "view_reports", "manage_users", "view_audit_logs"])
   );
 } else {
   // Force update password and email to a stronger one to avoid browser warnings
   db.prepare("UPDATE users SET password = ?, email = ? WHERE username = 'admin'").run(hashedAdmin, "admin@example.com");
+  
+  // Update admin permissions to include view_audit_logs if missing
+  try {
+    const adminUser = adminExists as any;
+    const perms = JSON.parse(adminUser.permissions || '[]');
+    if (!perms.includes('view_audit_logs')) {
+      perms.push('view_audit_logs');
+      db.prepare("UPDATE users SET permissions = ? WHERE id = ?").run(JSON.stringify(perms), adminUser.id);
+    }
+  } catch (e) {}
+}
+
+// Helper for logging
+const logAction = (req: any, action: string, entityType?: string, entityId?: number, details?: string) => {
+  try {
+    const userId = req.user ? req.user.id : null;
+    const username = req.user ? req.user.username : 'system';
+    db.prepare("INSERT INTO audit_logs (user_id, username, action, entity_type, entity_id, details) VALUES (?, ?, ?, ?, ?, ?)").run(
+      userId, username, action, entityType, entityId, details
+    );
+  } catch (e) {
+    console.error("Failed to log action:", e);
+  }
+};
+
+// MIGRATION: Recalculate all daily evaluation scores to be SUM instead of AVG
+try {
+  const evals = db.prepare("SELECT id FROM daily_evaluations").all() as any[];
+  const updateEval = db.prepare("UPDATE daily_evaluations SET total_score = ? WHERE id = ?");
+  const getEntries = db.prepare("SELECT quantity, task_id FROM task_entries WHERE evaluation_id = ?");
+  const getTask = db.prepare("SELECT target_quantity FROM tasks WHERE id = ?");
+
+  const migrateTransaction = db.transaction(() => {
+    for (const ev of evals) {
+      const entries = getEntries.all(ev.id) as any[];
+      let totalScore = 0;
+      for (const entry of entries) {
+        const task = getTask.get(entry.task_id) as any;
+        if (task && task.target_quantity > 0) {
+          totalScore += (entry.quantity / task.target_quantity) * 100;
+        }
+      }
+      updateEval.run(totalScore, ev.id);
+    }
+  });
+  
+  migrateTransaction();
+  console.log("Migration: Recalculated daily evaluation scores (SUM logic).");
+} catch (err) {
+  console.error("Migration failed:", err);
 }
 
 // Auth Middleware
@@ -166,11 +227,11 @@ async function startServer() {
 
   app.post("/api/auth/login", (req, res) => {
     try {
-      const { username, password } = req.body;
-      const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username) as any;
+      const { email, password } = req.body;
+      const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email) as any;
       
       if (!user || !bcrypt.compareSync(password, user.password)) {
-        return res.status(401).json({ error: "Invalid username or password" });
+        return res.status(401).json({ error: "Invalid email or password" });
       }
 
       if (user.status === 'rejected') {
@@ -182,6 +243,9 @@ async function startServer() {
         JWT_SECRET,
         { expiresIn: "24h" }
       );
+
+      // Log login
+      logAction({ user }, "LOGIN", "user", user.id, "User logged in");
 
       res.json({
         token,
@@ -220,11 +284,17 @@ async function startServer() {
     if (!email) return res.status(400).json({ error: "Email is required" });
     
     try {
+      const user = db.prepare("SELECT email FROM users WHERE id = ?").get(req.user.id) as any;
+      if (user.email === email) {
+        return res.json({ success: true, message: "No changes made" });
+      }
+
       // Check if email is taken by another user
       const existing = db.prepare("SELECT id FROM users WHERE email = ? AND id != ?").get(email, req.user.id);
       if (existing) return res.status(400).json({ error: "Email already in use" });
 
       db.prepare("UPDATE users SET email = ? WHERE id = ?").run(email, req.user.id);
+      logAction(req, "UPDATE_PROFILE", "user", req.user.id, `Updated email to ${email}`);
       res.json({ success: true, message: "Profile updated successfully" });
     } catch (err) {
       res.status(500).json({ error: "Failed to update profile" });
@@ -244,6 +314,7 @@ async function startServer() {
 
       const hashed = bcrypt.hashSync(newPassword, 10);
       db.prepare("UPDATE users SET password = ? WHERE id = ?").run(hashed, req.user.id);
+      logAction(req, "UPDATE_PASSWORD", "user", req.user.id, "Updated password");
       res.json({ success: true, message: "Password updated successfully" });
     } catch (err) {
       res.status(500).json({ error: "Failed to update password" });
@@ -251,6 +322,15 @@ async function startServer() {
   });
 
   // Admin Users Management
+  app.get("/api/admin/audit-logs", authenticateToken, requirePermission("view_audit_logs"), (req, res) => {
+    try {
+      const logs = db.prepare("SELECT * FROM audit_logs ORDER BY timestamp DESC LIMIT 500").all();
+      res.json(logs);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+
   app.get("/api/admin/users", authenticateToken, requirePermission("manage_users"), (req, res) => {
     const users = db.prepare("SELECT id, username, email, status, role, permissions FROM users WHERE role != 'admin'").all();
     res.json(users.map((u: any) => ({ ...u, permissions: JSON.parse(u.permissions || '[]') })));
@@ -261,6 +341,7 @@ async function startServer() {
     const { permissions } = req.body; // Array of strings
     try {
       db.prepare("UPDATE users SET permissions = ? WHERE id = ?").run(JSON.stringify(permissions || []), id);
+      logAction(req, "UPDATE_PERMISSIONS", "user", parseInt(id), `Updated permissions: ${permissions.join(", ")}`);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to update permissions" });
@@ -271,6 +352,7 @@ async function startServer() {
     const { id } = req.params;
     try {
       db.prepare("DELETE FROM users WHERE id = ?").run(id);
+      logAction(req, "DELETE_USER", "user", parseInt(id), "Deleted user");
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to delete user" });
@@ -303,6 +385,7 @@ async function startServer() {
         has_social_security ? 1 : 0,
         notes || null
       );
+      logAction(req, "CREATE_WORKER", "worker", Number(info.lastInsertRowid), `Created worker: ${name}`);
       res.json({ id: info.lastInsertRowid, name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes });
     } catch (err) {
       res.status(400).json({ error: "Worker already exists or invalid data" });
@@ -314,6 +397,26 @@ async function startServer() {
     const { name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes } = req.body;
     if (!name) return res.status(400).json({ error: "Name is required" });
     try {
+      const oldWorker = db.prepare("SELECT * FROM workers WHERE id = ?").get(id) as any;
+      if (oldWorker) {
+        const hasChanges = 
+          oldWorker.name !== name ||
+          oldWorker.phone !== (phone || null) ||
+          oldWorker.alt_phone !== (alt_phone || null) ||
+          oldWorker.address !== (address || null) ||
+          oldWorker.national_id !== (national_id || null) ||
+          oldWorker.age !== (age || null) ||
+          oldWorker.last_workplace !== (last_workplace || null) ||
+          oldWorker.current_job !== (current_job || null) ||
+          oldWorker.salary !== (salary || null) ||
+          oldWorker.has_social_security !== (has_social_security ? 1 : 0) ||
+          oldWorker.notes !== (notes || null);
+        
+        if (!hasChanges) {
+          return res.json({ success: true, message: "No changes made" });
+        }
+      }
+
       db.prepare(`
         UPDATE workers 
         SET name = ?, phone = ?, alt_phone = ?, address = ?, national_id = ?, age = ?, last_workplace = ?, current_job = ?, salary = ?, has_social_security = ?, notes = ?
@@ -332,6 +435,7 @@ async function startServer() {
         notes || null,
         id
       );
+      logAction(req, "UPDATE_WORKER", "worker", parseInt(id), `Updated worker: ${name}`);
       res.json({ success: true });
     } catch (err) {
       res.status(400).json({ error: "Failed to update worker" });
@@ -362,6 +466,7 @@ async function startServer() {
 
     try {
       transaction();
+      logAction(req, "DELETE_WORKER", "worker", parseInt(id), "Deleted worker and related data");
       res.json({ success: true });
     } catch (err) {
       console.error("Failed to delete worker:", err);
@@ -407,6 +512,8 @@ async function startServer() {
         VALUES (?, ?, ?, ?, ?)
       `).run(id, type, amount, date, description || null);
       
+      logAction(req, "CREATE_TRANSACTION", "transaction", Number(info.lastInsertRowid), `Added ${type} of ${amount} for worker ${id}`);
+
       res.json({ 
         id: info.lastInsertRowid, 
         worker_id: parseInt(id), 
@@ -425,6 +532,7 @@ async function startServer() {
     const { id } = req.params;
     try {
       db.prepare("DELETE FROM worker_transactions WHERE id = ?").run(id);
+      logAction(req, "DELETE_TRANSACTION", "transaction", parseInt(id), "Deleted transaction");
       res.json({ success: true });
     } catch (err) {
       console.error("Failed to delete transaction:", err);
@@ -443,9 +551,23 @@ async function startServer() {
     if (!name || !target_quantity) return res.status(400).json({ error: "Name and target_quantity are required" });
     try {
       const info = db.prepare("INSERT INTO tasks (name, target_quantity) VALUES (?, ?)").run(name, target_quantity);
+      logAction(req, "CREATE_TASK", "task", Number(info.lastInsertRowid), `Created task: ${name}`);
       res.json({ id: info.lastInsertRowid, name, target_quantity });
     } catch (err) {
       res.status(400).json({ error: "Task already exists or invalid data" });
+    }
+  });
+
+  app.put("/api/tasks/:id", authenticateToken, requirePermission("manage_tasks"), (req, res) => {
+    const { id } = req.params;
+    const { name, target_quantity } = req.body;
+    if (!name || !target_quantity) return res.status(400).json({ error: "Name and target_quantity are required" });
+    try {
+      db.prepare("UPDATE tasks SET name = ?, target_quantity = ? WHERE id = ?").run(name, target_quantity, id);
+      logAction(req, "UPDATE_TASK", "task", parseInt(id), `Updated task: ${name}`);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(400).json({ error: "Failed to update task or name already exists" });
     }
   });
 
@@ -461,6 +583,7 @@ async function startServer() {
 
     try {
       transaction();
+      logAction(req, "DELETE_TASK", "task", parseInt(id), "Deleted task");
       res.json({ success: true });
     } catch (err) {
       console.error("Failed to delete task:", err);
@@ -496,8 +619,8 @@ async function startServer() {
       processedEntries.push({ ...entry, score });
     }
 
-    // Average score for the day based on tasks performed
-    const dailyTotalScore = totalScoreSum / processedEntries.length;
+    // Sum of scores for the day based on tasks performed
+    const dailyTotalScore = totalScoreSum;
 
     const insertEval = db.prepare("INSERT INTO daily_evaluations (worker_id, date, total_score) VALUES (?, ?, ?)");
     const insertEntry = db.prepare("INSERT INTO task_entries (evaluation_id, task_id, quantity, score) VALUES (?, ?, ?, ?)");
@@ -513,6 +636,7 @@ async function startServer() {
 
     try {
       const newEvalId = transaction();
+      logAction(req, "CREATE_EVALUATION", "evaluation", Number(newEvalId), `Created evaluation for worker ${worker_id} on ${date}`);
       res.json({ success: true, evaluation_id: newEvalId, daily_score: dailyTotalScore });
     } catch (err) {
       res.status(500).json({ error: "Failed to save evaluation" });
@@ -537,6 +661,36 @@ async function startServer() {
 
     const evaluations = db.prepare(query).all(...params);
     res.json(evaluations);
+  });
+
+  app.get("/api/workers/:id/evaluations", authenticateToken, requirePermission("view_work_logs"), (req, res) => {
+    const { id } = req.params;
+    const { month } = req.query; // format: YYYY-MM
+    
+    let query = "SELECT * FROM daily_evaluations WHERE worker_id = ?";
+    const params: any[] = [id];
+
+    if (month) {
+      query += " AND date LIKE ?";
+      params.push(`${month}-%`);
+    }
+    
+    query += " ORDER BY date DESC";
+    
+    const evaluations = db.prepare(query).all(...params) as any[];
+    
+    // For each evaluation, get the entries
+    const result = evaluations.map(ev => {
+      const entries = db.prepare(`
+        SELECT te.*, t.name as task_name, t.target_quantity
+        FROM task_entries te
+        JOIN tasks t ON te.task_id = t.id
+        WHERE te.evaluation_id = ?
+      `).all(ev.id);
+      return { ...ev, entries };
+    });
+
+    res.json(result);
   });
 
   app.get("/api/evaluations/:id", authenticateToken, requirePermission("manage_evaluations"), (req, res) => {
@@ -570,6 +724,7 @@ async function startServer() {
 
     try {
       transaction();
+      logAction(req, "DELETE_EVALUATION", "evaluation", parseInt(id), "Deleted evaluation");
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to delete evaluation" });
@@ -599,8 +754,8 @@ async function startServer() {
       processedEntries.push({ ...entry, score });
     }
 
-    // Average score for the day based on tasks performed
-    const dailyTotalScore = totalScoreSum / processedEntries.length;
+    // Sum of scores for the day based on tasks performed
+    const dailyTotalScore = totalScoreSum;
 
     const transaction = db.transaction(() => {
       db.prepare("UPDATE daily_evaluations SET total_score = ? WHERE id = ?").run(dailyTotalScore, id);
@@ -614,6 +769,7 @@ async function startServer() {
 
     try {
       transaction();
+      logAction(req, "UPDATE_EVALUATION", "evaluation", parseInt(id), "Updated evaluation");
       res.json({ success: true, daily_score: dailyTotalScore });
     } catch (err) {
       res.status(500).json({ error: "Failed to update evaluation" });

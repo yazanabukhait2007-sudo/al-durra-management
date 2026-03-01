@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { motion } from "motion/react";
 import Logo from "../components/Logo";
 import { User, Lock, UserPlus, CheckCircle2, Eye, EyeOff, Mail } from "lucide-react";
+
+import { useTheme } from "../context/ThemeContext";
 
 export default function Signup() {
   const [username, setUsername] = useState("");
@@ -13,13 +16,16 @@ export default function Signup() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const { user, login } = useAuth();
+  const { showToast } = useToast();
+  const { setTheme } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
+    setTheme("light");
     if (user) {
       navigate("/");
     }
-  }, [user, navigate]);
+  }, [user, navigate, setTheme]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,15 +44,18 @@ export default function Signup() {
       if (res.ok) {
         setSuccess(true);
         login(data.token, data.user);
+        showToast("تم إنشاء الحساب بنجاح! أهلاً بك", "success");
         setTimeout(() => {
           navigate("/");
         }, 2000);
       } else {
         setError(data.error || "فشل إنشاء الحساب");
+        showToast(data.error || "فشل إنشاء الحساب", "error");
       }
     } catch (err) {
       console.error("Signup error:", err);
       setError("حدث خطأ في الاتصال");
+      showToast("حدث خطأ في الاتصال", "error");
     }
   };
 
@@ -110,7 +119,7 @@ export default function Signup() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white outline-none"
+                    className="block w-full pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none"
                     placeholder="أدخل بريدك الإلكتروني..."
                   />
                 </div>
@@ -129,7 +138,7 @@ export default function Signup() {
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="block w-full pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white outline-none"
+                    className="block w-full pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none"
                     placeholder="اختر اسم مستخدم..."
                   />
                 </div>
@@ -148,7 +157,7 @@ export default function Signup() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="block w-full pr-12 pl-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white outline-none"
+                    className="block w-full pr-12 pl-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none"
                     placeholder="اختر كلمة مرور قوية..."
                   />
                   <button
