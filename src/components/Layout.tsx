@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet, Menu, X, Settings, ChevronRight, ChevronLeft, Activity } from "lucide-react";
+import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet, Menu, X, Settings, ChevronRight, ChevronLeft, Activity, Clock } from "lucide-react";
 import Logo from "./Logo";
 import { useAuth } from "../context/AuthContext";
 
@@ -22,6 +22,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: "الأعمال (المهام)", href: "/tasks", icon: ClipboardList, permission: "view_tasks" },
     { name: "التقييم اليومي", href: "/evaluations", icon: CalendarCheck, permission: "view_evaluations" },
     { name: "التقرير الشهري", href: "/reports", icon: BarChart3, permission: "view_reports" },
+    { name: "الحضور والمغادرات", href: "/attendance", icon: Clock, permission: "view_attendance" },
     { name: "كشف حساب", href: "/account-statement", icon: Wallet, permission: "view_account_statements" },
     { name: "إدارة المستخدمين", href: "/admin/users", icon: ShieldAlert, permission: "manage_users" },
     { name: "سجل النشاطات", href: "/admin/audit-logs", icon: Activity, permission: "view_audit_logs" },
@@ -67,20 +68,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}
         md:translate-x-0 md:static md:h-screen md:sticky md:top-0
         ${isDesktopSidebarOpen ? 'md:w-72' : 'md:w-20'}
-        flex flex-col overflow-hidden border-l border-white/5
+        flex flex-col border-l border-white/5
       `}>
         {/* Sidebar Header */}
         <div className={`flex items-center justify-center h-24 border-b border-white/10 transition-all duration-300 ${isDesktopSidebarOpen ? 'px-6' : 'px-2'} relative`}>
-          {/* Desktop Sidebar Toggle Button */}
+          {/* Desktop Sidebar Toggle Button - Floating on the edge */}
           <button 
             onClick={() => setIsDesktopSidebarOpen(!isDesktopSidebarOpen)}
-            className="hidden md:flex absolute top-4 left-4 p-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all z-40 border border-white/10 group"
+            className="hidden md:flex absolute top-1/2 -translate-y-1/2 -left-3 w-7 h-7 bg-white dark:bg-gray-800 border-2 border-durra-green text-durra-green rounded-full items-center justify-center shadow-lg z-50 hover:scale-110 transition-all cursor-pointer group"
             title={isDesktopSidebarOpen ? "تصغير القائمة" : "توسيع القائمة"}
           >
             {isDesktopSidebarOpen ? (
-              <ChevronRight className="h-4 w-4 group-hover:scale-110 transition-transform" />
+              <ChevronRight className="h-4 w-4 stroke-[3]" />
             ) : (
-              <Menu className="h-4 w-4 group-hover:scale-110 transition-transform" />
+              <ChevronLeft className="h-4 w-4 stroke-[3]" />
             )}
           </button>
 

@@ -427,7 +427,7 @@ export default function Workers() {
                   <button
                     type="button"
                     onClick={() => confirmDelete(editingWorker.id, editingWorker.name)}
-                    className="px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 rounded-lg transition-colors flex items-center gap-2 font-medium"
+                    className="px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 rounded-xl transition-colors flex items-center gap-2 font-medium"
                   >
                     <Trash2 className="w-4 h-4" />
                     حذف العامل
@@ -438,7 +438,7 @@ export default function Workers() {
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   {viewOnly ? "إغلاق" : "إلغاء"}
                 </button>
@@ -446,7 +446,7 @@ export default function Workers() {
                   <button
                     type="submit"
                     form="worker-form"
-                    className="px-6 py-2 bg-durra-green text-white rounded-lg hover:bg-durra-green-light transition-colors"
+                    className="px-6 py-2 bg-durra-green text-white rounded-xl hover:bg-durra-green-light transition-colors font-bold shadow-sm active:scale-95"
                   >
                     حفظ البيانات
                   </button>

@@ -23,6 +23,7 @@ import Signup from "./pages/Signup";
 import Settings from "./pages/Settings";
 import AdminUsers from "./pages/AdminUsers";
 import AuditLogs from "./pages/AuditLogs";
+import Attendance from "./pages/Attendance";
 
 function ProtectedRoute({ children, permission }: { children: React.ReactNode, permission?: string }) {
   const { user, loading } = useAuth();
@@ -90,6 +91,11 @@ function AnimatedRoutes() {
           <Route path="/reports" element={
             <ProtectedRoute permission="view_reports">
               <Layout><MonthlyReport /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/attendance" element={
+            <ProtectedRoute permission="view_attendance">
+              <Layout><Attendance /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/account-statement" element={

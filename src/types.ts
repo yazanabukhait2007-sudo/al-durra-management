@@ -56,3 +56,24 @@ export interface MonthlyReportItem {
   days_worked: number;
   average_score: number;
 }
+
+export interface AttendanceRecord {
+  worker_id: number;
+  worker_name: string;
+  attendance_id?: number;
+  status: 'present' | 'absent' | 'vacation' | 'sick' | 'unpaid' | null;
+  check_in?: string;
+  check_out?: string;
+  notes?: string;
+}
+
+export interface DepartureRecord {
+  id: number;
+  worker_id: number;
+  worker_name: string;
+  date: string;
+  type: 'personal' | 'work' | 'early';
+  start_time: string;
+  end_time?: string;
+  notes?: string;
+}

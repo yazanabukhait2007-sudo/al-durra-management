@@ -190,7 +190,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="flex items-center gap-2 bg-durra-green text-white px-6 py-2 rounded-lg hover:bg-durra-green-dark transition-colors disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 bg-durra-green text-white px-8 py-2.5 rounded-xl hover:bg-durra-green-dark transition-all shadow-md active:scale-95 disabled:opacity-50 font-bold"
                   >
                     {isLoading ? 'جاري الحفظ...' : (
                       <>
@@ -218,7 +218,7 @@ export default function Settings() {
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
                       required
-                      className="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green/20 focus:border-durra-green outline-none transition-all"
+                      className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green/20 focus:border-durra-green outline-none transition-all"
                     />
                   </div>
 
@@ -230,7 +230,7 @@ export default function Settings() {
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green/20 focus:border-durra-green outline-none transition-all"
+                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green/20 focus:border-durra-green outline-none transition-all"
                       />
                     </div>
 
@@ -241,7 +241,7 @@ export default function Settings() {
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         required
-                        className="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green/20 focus:border-durra-green outline-none transition-all"
+                        className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green/20 focus:border-durra-green outline-none transition-all"
                       />
                     </div>
                   </div>
@@ -251,7 +251,7 @@ export default function Settings() {
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="flex items-center gap-2 bg-durra-green text-white px-6 py-2 rounded-lg hover:bg-durra-green-dark transition-colors disabled:opacity-50"
+                    className="flex items-center justify-center gap-2 bg-durra-green text-white px-8 py-2.5 rounded-xl hover:bg-durra-green-dark transition-all shadow-md active:scale-95 disabled:opacity-50 font-bold"
                   >
                     {isLoading ? 'جاري التحديث...' : (
                       <>

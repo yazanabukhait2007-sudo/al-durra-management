@@ -22,6 +22,8 @@ const AVAILABLE_PERMISSIONS = [
   { id: "edit_evaluation", label: "تعديل تقييم" },
   { id: "delete_evaluation", label: "حذف تقييم" },
   { id: "view_reports", label: "عرض التقارير وتصديرها" },
+  { id: "view_attendance", label: "عرض سجل الحضور والمغادرات" },
+  { id: "manage_attendance", label: "إدارة الحضور والمغادرات" },
   { id: "view_account_statements", label: "عرض كشوفات الحساب" },
   { id: "add_transaction", label: "إضافة حركات مالية" },
   { id: "delete_transaction", label: "حذف حركات مالية" },

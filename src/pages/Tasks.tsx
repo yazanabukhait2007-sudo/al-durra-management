@@ -160,7 +160,7 @@ export default function Tasks() {
             />
             <button
               type="submit"
-              className="bg-durra-green text-white px-6 py-2 rounded-lg hover:bg-durra-green-light flex items-center justify-center gap-2 transition-colors"
+              className="bg-durra-green text-white px-8 py-2 rounded-xl hover:bg-durra-green-light flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 font-bold"
             >
               <Plus className="w-5 h-5" />
               إضافة
@@ -258,7 +258,7 @@ export default function Tasks() {
                     type="text"
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
                     required
                   />
                 </div>
@@ -268,7 +268,7 @@ export default function Tasks() {
                     type="number"
                     value={editTarget}
                     onChange={(e) => setEditTarget(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
                     required
                     min="1"
                   />

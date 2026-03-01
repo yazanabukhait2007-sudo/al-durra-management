@@ -84,6 +84,29 @@ db.exec(`
     details TEXT,
     timestamp TEXT DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS attendance (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    worker_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    status TEXT NOT NULL,
+    check_in TEXT,
+    check_out TEXT,
+    notes TEXT,
+    FOREIGN KEY (worker_id) REFERENCES workers(id)
+  );
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_worker_date ON attendance(worker_id, date);
+
+  CREATE TABLE IF NOT EXISTS departures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    worker_id INTEGER NOT NULL,
+    date TEXT NOT NULL,
+    type TEXT NOT NULL,
+    start_time TEXT NOT NULL,
+    end_time TEXT,
+    notes TEXT,
+    FOREIGN KEY (worker_id) REFERENCES workers(id)
+  );
 `);
 
 // Add columns if they don't exist (for existing databases)
@@ -792,6 +815,115 @@ async function startServer() {
     `).all(`${month}-%`);
 
     res.json(report);
+  });
+
+  // Attendance Routes
+  app.get("/api/attendance", authenticateToken, requirePermission("view_attendance"), (req, res) => {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ error: "Date is required" });
+
+    try {
+      const records = db.prepare(`
+        SELECT 
+          w.id as worker_id, 
+          w.name as worker_name, 
+          a.id as attendance_id, 
+          a.status, 
+          a.check_in, 
+          a.check_out, 
+          a.notes
+        FROM workers w
+        LEFT JOIN attendance a ON w.id = a.worker_id AND a.date = ?
+        ORDER BY w.name
+      `).all(date);
+      res.json(records);
+    } catch (error) {
+      console.error("Failed to fetch attendance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/attendance", authenticateToken, requirePermission("manage_attendance"), (req, res) => {
+    const { worker_id, date, status, check_in, check_out, notes } = req.body;
+    if (!worker_id || !date || !status) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+      const existing = db.prepare("SELECT id FROM attendance WHERE worker_id = ? AND date = ?").get(worker_id, date) as any;
+      
+      if (existing) {
+        db.prepare(`
+          UPDATE attendance 
+          SET status = ?, check_in = ?, check_out = ?, notes = ?
+          WHERE id = ?
+        `).run(status, check_in || null, check_out || null, notes || null, existing.id);
+        
+        // logAudit(req.user.id, req.user.username, "UPDATE", "attendance", existing.id, `Updated attendance for worker ${worker_id} on ${date}`);
+      } else {
+        const info = db.prepare(`
+          INSERT INTO attendance (worker_id, date, status, check_in, check_out, notes)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).run(worker_id, date, status, check_in || null, check_out || null, notes || null);
+        
+        // logAudit(req.user.id, req.user.username, "CREATE", "attendance", info.lastInsertRowid, `Recorded attendance for worker ${worker_id} on ${date}`);
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to save attendance:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // Departures Routes
+  app.get("/api/departures", authenticateToken, requirePermission("view_attendance"), (req, res) => {
+    const { date } = req.query;
+    if (!date) return res.status(400).json({ error: "Date is required" });
+
+    try {
+      const records = db.prepare(`
+        SELECT 
+          d.*, 
+          w.name as worker_name
+        FROM departures d
+        JOIN workers w ON d.worker_id = w.id
+        WHERE d.date = ?
+        ORDER BY d.start_time
+      `).all(date);
+      res.json(records);
+    } catch (error) {
+      console.error("Failed to fetch departures:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.post("/api/departures", authenticateToken, requirePermission("manage_attendance"), (req, res) => {
+    const { worker_id, date, type, start_time, end_time, notes } = req.body;
+    if (!worker_id || !date || !type || !start_time) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+      const info = db.prepare(`
+        INSERT INTO departures (worker_id, date, type, start_time, end_time, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(worker_id, date, type, start_time, end_time || null, notes || null);
+      
+      // logAudit(req.user.id, req.user.username, "CREATE", "departure", info.lastInsertRowid, `Added departure for worker ${worker_id} on ${date}`);
+      res.json({ success: true, id: info.lastInsertRowid });
+    } catch (error) {
+      console.error("Failed to add departure:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/departures/:id", authenticateToken, requirePermission("manage_attendance"), (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare("DELETE FROM departures WHERE id = ?").run(id);
+      // logAudit(req.user.id, req.user.username, "DELETE", "departure", id, `Deleted departure ${id}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete departure:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   });
 
   // Vite middleware for development
