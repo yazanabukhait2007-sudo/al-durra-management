@@ -1,3 +1,7 @@
+/**
+ * لوحة التحكم الرئيسية: عرض الإحصائيات العامة والرسوم البيانية للأداء
+ */
+
 import { useState, useEffect } from "react";
 import { Users, ClipboardList, CalendarCheck, TrendingUp, Activity, ArrowUpRight, Plus, FileText } from "lucide-react";
 import { format, subDays, parseISO, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay } from "date-fns";

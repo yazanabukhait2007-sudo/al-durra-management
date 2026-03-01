@@ -1,3 +1,7 @@
+/**
+ * صفحة الحضور والمغادرات: إدارة سجلات الدوام اليومي والمغادرات المؤقتة
+ */
+
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { arSA } from "date-fns/locale";

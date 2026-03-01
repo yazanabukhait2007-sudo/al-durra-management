@@ -13,7 +13,9 @@ const db = new Database("database.sqlite");
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-durra-app";
 
 // Initialize Database
+// إعداد قاعدة البيانات والجداول الأساسية
 db.exec(`
+  -- جدول العمال: يحتوي على كافة البيانات الشخصية والمهنية للموظفين
   CREATE TABLE IF NOT EXISTS workers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
@@ -30,12 +32,14 @@ db.exec(`
     notes TEXT
   );
 
+  -- جدول المهام: تعريف المهام والكميات المستهدفة لكل مهمة
   CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     target_quantity INTEGER NOT NULL
   );
 
+  -- جدول التقييمات اليومية: السجل الرئيسي لتقييم الموظف في يوم محدد
   CREATE TABLE IF NOT EXISTS daily_evaluations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     worker_id INTEGER NOT NULL,
@@ -44,6 +48,7 @@ db.exec(`
     FOREIGN KEY (worker_id) REFERENCES workers(id)
   );
 
+  -- تفاصيل المهام في التقييم: تفصيل كل مهمة قام بها الموظف ودرجتها
   CREATE TABLE IF NOT EXISTS task_entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     evaluation_id INTEGER NOT NULL,
@@ -54,6 +59,7 @@ db.exec(`
     FOREIGN KEY (task_id) REFERENCES tasks(id)
   );
 
+  -- جدول المستخدمين: إدارة الدخول والصلاحيات للنظام
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL UNIQUE,
@@ -64,6 +70,7 @@ db.exec(`
     permissions TEXT NOT NULL DEFAULT '[]'
   );
 
+  -- المعاملات المالية: سجل الرواتب، المكافآت، والخصومات
   CREATE TABLE IF NOT EXISTS worker_transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     worker_id INTEGER NOT NULL,
@@ -74,6 +81,7 @@ db.exec(`
     FOREIGN KEY (worker_id) REFERENCES workers(id)
   );
 
+  -- سجل العمليات (Audit Logs): تتبع كافة العمليات الحساسة في النظام
   CREATE TABLE IF NOT EXISTS audit_logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
@@ -85,6 +93,7 @@ db.exec(`
     timestamp TEXT DEFAULT CURRENT_TIMESTAMP
   );
 
+  -- جدول الحضور والغياب: تسجيل وقت الدخول والخروج والملاحظات اليومية
   CREATE TABLE IF NOT EXISTS attendance (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     worker_id INTEGER NOT NULL,
@@ -97,6 +106,7 @@ db.exec(`
   );
   CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_worker_date ON attendance(worker_id, date);
 
+  -- جدول المغادرات: تتبع خروج الموظفين أثناء الدوام الرسمي
   CREATE TABLE IF NOT EXISTS departures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     worker_id INTEGER NOT NULL,
@@ -382,12 +392,14 @@ async function startServer() {
     }
   });
 
-  // Workers
+  // --- مسارات العمال (Workers) ---
+  // جلب كافة العمال
   app.get("/api/workers", authenticateToken, requirePermission("manage_workers"), (req, res) => {
     const workers = db.prepare("SELECT * FROM workers").all();
     res.json(workers);
   });
 
+  // إضافة عامل جديد
   app.post("/api/workers", authenticateToken, requirePermission("manage_workers"), (req, res) => {
     const { name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes } = req.body;
     if (!name) return res.status(400).json({ error: "Name is required" });
@@ -666,6 +678,8 @@ async function startServer() {
     }
   });
 
+  // --- مسارات التقييمات (Evaluations) ---
+  // جلب التقييمات لشهر محدد
   app.get("/api/evaluations", authenticateToken, requirePermission("manage_evaluations"), (req, res) => {
     const { month } = req.query; // format: YYYY-MM
     let query = `
@@ -818,6 +832,8 @@ async function startServer() {
   });
 
   // Attendance Routes
+  // --- مسارات الحضور والغياب (Attendance) ---
+  // جلب سجلات الحضور
   app.get("/api/attendance", authenticateToken, requirePermission("view_attendance"), (req, res) => {
     const { date, start_date, end_date } = req.query;
 
@@ -864,6 +880,7 @@ async function startServer() {
     }
   });
 
+  // تسجيل الحضور والغياب
   app.post("/api/attendance", authenticateToken, requirePermission("manage_attendance"), (req, res) => {
     const { worker_id, date, status, check_in, check_out, notes } = req.body;
     if (!worker_id || !date || !status) return res.status(400).json({ error: "Missing fields" });

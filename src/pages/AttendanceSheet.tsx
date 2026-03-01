@@ -1,3 +1,7 @@
+/**
+ * مكون كشف الحضور الشهري: عرض وتصدير تقارير الحضور لكل موظف
+ */
+
 import React, { useState, useEffect, useRef } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, parseISO, getDay } from "date-fns";
 import { arSA } from "date-fns/locale";

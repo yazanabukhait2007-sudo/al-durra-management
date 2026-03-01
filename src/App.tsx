@@ -1,6 +1,5 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * التطبيق الرئيسي: إدارة المسارات، التوثيق، والتصميم العام
  */
 
 import React from "react";
@@ -25,6 +24,7 @@ import AdminUsers from "./pages/AdminUsers";
 import AuditLogs from "./pages/AuditLogs";
 import Attendance from "./pages/Attendance";
 
+// مكون حماية المسارات: يتحقق من تسجيل الدخول والصلاحيات قبل عرض الصفحة
 function ProtectedRoute({ children, permission }: { children: React.ReactNode, permission?: string }) {
   const { user, loading } = useAuth();
 
@@ -49,6 +49,7 @@ function ProtectedRoute({ children, permission }: { children: React.ReactNode, p
   return <>{children}</>;
 }
 
+// إدارة المسارات مع تأثيرات الانتقال الحركية
 function AnimatedRoutes() {
   const location = useLocation();
   return (

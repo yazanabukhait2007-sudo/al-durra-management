@@ -1,3 +1,7 @@
+/**
+ * مكون اختيار الوقت: يتيح اختيار الساعة والدقائق بشكل مخصص
+ */
+
 import React, { useState, useRef, useEffect } from "react";
 import { Clock } from "lucide-react";
 
