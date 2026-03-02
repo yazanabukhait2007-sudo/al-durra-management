@@ -5,7 +5,7 @@
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { arSA } from "date-fns/locale";
-import { Calendar, Clock, UserCheck, UserX, AlertCircle, Plus, Trash2, X, Save, FileText } from "lucide-react";
+import { Calendar, Clock, UserCheck, UserX, AlertCircle, Plus, Trash2, X, Save, FileText, Edit } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { fetchWithAuth } from "../utils/api";
@@ -15,6 +15,20 @@ import ConfirmModal from "../components/ConfirmModal";
 import AttendanceSheet from "./AttendanceSheet";
 import DatePicker from "../components/DatePicker";
 import TimePicker from "../components/TimePicker";
+import CustomSelect from "../components/CustomSelect";
+import { User } from "lucide-react";
+
+// Helper to calculate duration
+function calculateDuration(start: string, end: string) {
+  if (!start || !end) return "-";
+  const [h1, m1] = start.split(':').map(Number);
+  const [h2, m2] = end.split(':').map(Number);
+  let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
+  if (diff < 0) diff += 24 * 60;
+  const hours = Math.floor(diff / 60);
+  const mins = diff % 60;
+  return `${hours}:${mins.toString().padStart(2, '0')}`;
+}
 
 export default function Attendance() {
   const { user } = useAuth();
@@ -31,9 +45,10 @@ export default function Attendance() {
   const [departures, setDepartures] = useState<DepartureRecord[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [showDepartureModal, setShowDepartureModal] = useState(false);
+  const [editingDepartureId, setEditingDepartureId] = useState<number | null>(null);
   const [newDeparture, setNewDeparture] = useState({
     worker_id: "",
-    type: "personal",
+    type: "work",
     start_time: format(new Date(), "HH:mm"),
     end_time: "",
     notes: ""
@@ -45,6 +60,7 @@ export default function Attendance() {
     check_out: string;
     notes: string;
   }>>({});
+  const [settings, setSettings] = useState<{ official_end_time: string } | null>(null);
 
   useEffect(() => {
     if (showAttendanceModal && workers.length > 0) {
@@ -65,12 +81,30 @@ export default function Attendance() {
 
   const [deleteDepartureId, setDeleteDepartureId] = useState<number | null>(null);
 
+  const handleOpenDepartureModal = () => {
+    setEditingDepartureId(null);
+    setNewDeparture({
+      worker_id: "",
+      type: "work",
+      start_time: format(new Date(), "HH:mm"),
+      end_time: "",
+      notes: ""
+    });
+    setShowDepartureModal(true);
+  };
+
   useEffect(() => {
     // Fetch workers for the dropdown
     fetchWithAuth("/api/workers")
       .then(res => res.json())
       .then(data => setWorkers(data))
       .catch(err => console.error("Failed to fetch workers", err));
+
+    // Fetch settings
+    fetchWithAuth("/api/settings")
+      .then(res => res.json())
+      .then(data => setSettings(data))
+      .catch(err => console.error("Failed to fetch settings", err));
   }, []);
 
   const fetchData = async () => {
@@ -103,8 +137,12 @@ export default function Attendance() {
     if (!newDeparture.worker_id || !newDeparture.start_time) return;
 
     try {
-      const res = await fetchWithAuth("/api/departures", {
-        method: "POST",
+      const isEdit = !!editingDepartureId;
+      const url = isEdit ? `/api/departures/${editingDepartureId}` : "/api/departures";
+      const method = isEdit ? "PUT" : "POST";
+
+      const res = await fetchWithAuth(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...newDeparture,
@@ -114,11 +152,12 @@ export default function Attendance() {
       });
 
       if (res.ok) {
-        showToast("تم إضافة المغادرة بنجاح", "success");
+        showToast(isEdit ? "تم تحديث المغادرة بنجاح" : "تم إضافة المغادرة بنجاح", "success");
         setShowDepartureModal(false);
+        setEditingDepartureId(null);
         setNewDeparture({
           worker_id: "",
-          type: "personal",
+          type: "work",
           start_time: format(new Date(), "HH:mm"),
           end_time: "",
           notes: ""
@@ -126,8 +165,20 @@ export default function Attendance() {
         fetchData();
       }
     } catch (error) {
-      showToast("فشل إضافة المغادرة", "error");
+      showToast("فشل حفظ المغادرة", "error");
     }
+  };
+
+  const handleEditDeparture = (dep: DepartureRecord) => {
+    setEditingDepartureId(dep.id);
+    setNewDeparture({
+      worker_id: dep.worker_id.toString(),
+      type: dep.type,
+      start_time: dep.start_time,
+      end_time: dep.end_time || "",
+      notes: dep.notes || ""
+    });
+    setShowDepartureModal(true);
   };
 
   const handleDeleteDeparture = async () => {
@@ -149,13 +200,60 @@ export default function Attendance() {
   const canManage = user?.role === 'admin' || user?.permissions.includes('manage_attendance');
 
   const handleBulkChange = (workerId: number, field: string, value: any) => {
-    setBulkAttendance(prev => ({
-      ...prev,
-      [workerId]: {
+    setBulkAttendance(prev => {
+      const workerData = {
         ...prev[workerId],
         [field]: value
+      };
+
+      // Auto-calculate early departure note
+      if (field === 'check_out' && settings?.official_end_time && value) {
+        const [h1, m1] = value.split(':').map(Number);
+        const [h2, m2] = settings.official_end_time.split(':').map(Number);
+        
+        const checkOutMins = h1 * 60 + m1;
+        const officialEndMins = h2 * 60 + m2;
+        const diff = officialEndMins - checkOutMins;
+
+        if (diff > 0) {
+          const hours = Math.floor(diff / 60);
+          const mins = diff % 60;
+          
+          let parts = [];
+          if (hours === 1) parts.push("ساعة");
+          else if (hours === 2) parts.push("ساعتين");
+          else if (hours > 2 && hours <= 10) parts.push(`${hours} ساعات`);
+          else if (hours > 10) parts.push(`${hours} ساعة`);
+          
+          if (mins > 0) {
+            parts.push(`${mins} دقيقة`);
+          }
+          
+          const earlyNote = `خروج مبكر ${parts.join(" و ")}`;
+          
+          // Only add if not already present to avoid duplication/overwrite of user custom notes
+          if (!workerData.notes.includes("خروج مبكر")) {
+             workerData.notes = workerData.notes ? `${workerData.notes} - ${earlyNote}` : earlyNote;
+          } else {
+             // Update existing early departure note
+             workerData.notes = workerData.notes.replace(/خروج مبكر.*$/, earlyNote);
+          }
+        } else {
+          // Remove early departure note if user changes time back to normal
+          if (workerData.notes.includes("خروج مبكر")) {
+             workerData.notes = workerData.notes
+               .replace(/ - خروج مبكر.*$/, "")
+               .replace(/^خروج مبكر.*$/, "")
+               .trim();
+          }
+        }
       }
-    }));
+
+      return {
+        ...prev,
+        [workerId]: workerData
+      };
+    });
   };
 
   const handleAddAttendance = async (e: React.FormEvent) => {
@@ -261,6 +359,8 @@ export default function Attendance() {
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-durra-green"></div>
           </div>
+        ) : activeTab === 'report' ? (
+          <AttendanceSheet />
         ) : activeTab === 'attendance' ? (
           <div className="p-6">
             {canManage && (
@@ -336,12 +436,14 @@ export default function Attendance() {
             </table>
           </div>
         </div>
+        ) : activeTab === 'report' ? (
+          <AttendanceSheet />
         ) : activeTab === 'departures' ? (
           <div className="p-6">
             {canManage && (
               <div className="mb-6 flex justify-end">
                 <button
-                  onClick={() => setShowDepartureModal(true)}
+                  onClick={handleOpenDepartureModal}
                   className="bg-durra-green text-white px-6 py-2.5 rounded-xl hover:bg-durra-green-light transition-all shadow-md active:scale-95 font-bold flex items-center gap-2"
                 >
                   <Plus className="w-5 h-5" />
@@ -363,20 +465,29 @@ export default function Attendance() {
                       <div>
                         <h3 className="font-bold text-gray-900 dark:text-white">{dep.worker_name}</h3>
                         <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block ${
-                          dep.type === 'personal' ? 'bg-orange-100 text-orange-700' :
                           dep.type === 'work' ? 'bg-blue-100 text-blue-700' :
                           'bg-purple-100 text-purple-700'
                         }`}>
-                          {dep.type === 'personal' ? 'مغادرة شخصية' : dep.type === 'work' ? 'مهمة عمل' : 'خروج مبكر'}
+                          {dep.type === 'work' ? 'مهمة عمل' : 'خروج مبكر'}
                         </span>
                       </div>
                       {canManage && (
-                        <button
-                          onClick={() => setDeleteDepartureId(dep.id)}
-                          className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => handleEditDeparture(dep)}
+                            className="text-blue-500 hover:text-blue-700 p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                            title="تعديل"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteDepartureId(dep.id)}
+                            className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            title="حذف"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       )}
                     </div>
                     
@@ -412,9 +523,9 @@ export default function Attendance() {
 
       {/* Add Attendance Modal */}
       {showAttendanceModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-700">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-10">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl shadow-xl animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-gray-100 dark:border-gray-700 rounded-t-2xl bg-white dark:bg-gray-800">
               <div className="flex items-center justify-between">
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">تسجيل الحضور اليومي - {format(new Date(selectedDate), "EEEE d MMMM", { locale: arSA })}</h3>
                 <button 
@@ -428,7 +539,7 @@ export default function Attendance() {
 
             <form onSubmit={handleAddAttendance} className="flex-1 overflow-hidden flex flex-col">
               <div className="flex-1 overflow-y-auto p-6">
-                <div className="space-y-4">
+                <div className="space-y-4 pb-32">
                   {workers.map(worker => {
                     const data = bulkAttendance[worker.id] || { status: 'present', check_in: '', check_out: '', notes: '' };
                     return (
@@ -496,34 +607,34 @@ export default function Attendance() {
                       </div>
                     );
                   })}
-                </div>
-              </div>
 
-              <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex gap-3">
-                <button
-                  type="submit"
-                  disabled={savingAttendance}
-                  className="flex-1 bg-durra-green text-white px-6 py-3 rounded-xl hover:bg-durra-green-light transition-all shadow-md active:scale-95 font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {savingAttendance ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      جاري الحفظ...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-5 h-5" />
-                      حفظ سجل الحضور
-                    </>
-                  )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowAttendanceModal(false)}
-                  className="px-6 py-3 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium"
-                >
-                  إلغاء
-                </button>
+                  <div className="pt-6 flex gap-3">
+                    <button
+                      type="submit"
+                      disabled={savingAttendance}
+                      className="flex-1 bg-durra-green text-white px-6 py-3 rounded-xl hover:bg-durra-green-light transition-all shadow-md active:scale-95 font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {savingAttendance ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          جاري الحفظ...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-5 h-5" />
+                          حفظ سجل الحضور
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAttendanceModal(false)}
+                      className="px-6 py-3 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium"
+                    >
+                      إلغاء
+                    </button>
+                  </div>
+                </div>
               </div>
             </form>
           </div>
@@ -532,40 +643,41 @@ export default function Attendance() {
 
       {/* Add Departure Modal */}
       {showDepartureModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">تسجيل مغادرة جديدة</h3>
-                <button 
-                  onClick={() => setShowDepartureModal(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-10">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl animate-in fade-in zoom-in duration-200">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {editingDepartureId ? "تعديل سجل مغادرة" : "تسجيل مغادرة جديدة"}
+                  </h3>
+                  <button 
+                    onClick={() => setShowDepartureModal(false)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
 
-              <form onSubmit={handleAddDeparture} className="space-y-4">
+              <form onSubmit={handleAddDeparture} className="space-y-4 pb-10">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">الموظف</label>
-                  <select
+                  <CustomSelect
                     value={newDeparture.worker_id}
-                    onChange={(e) => setNewDeparture({...newDeparture, worker_id: e.target.value})}
-                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
-                    required
-                  >
-                    <option value="">اختر الموظف...</option>
-                    {workers.map(w => (
-                      <option key={w.id} value={w.id}>{w.name}</option>
-                    ))}
-                  </select>
+                    onChange={(val) => setNewDeparture({...newDeparture, worker_id: val})}
+                    options={workers.map(w => ({
+                      value: w.id.toString(),
+                      label: w.name,
+                      subLabel: w.current_job || undefined
+                    }))}
+                    placeholder="اختر الموظف..."
+                    icon={<User className="w-5 h-5 text-durra-green" />}
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">نوع المغادرة</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 gap-2">
                     {[
-                      { value: 'personal', label: 'شخصية' },
                       { value: 'work', label: 'عمل' },
                       { value: 'early', label: 'خروج مبكر' },
                     ].map(type => (
@@ -613,12 +725,12 @@ export default function Attendance() {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button
-                    type="submit"
-                    className="flex-1 bg-durra-green text-white px-6 py-2.5 rounded-xl hover:bg-durra-green-light transition-all shadow-md active:scale-95 font-bold"
-                  >
-                    حفظ المغادرة
-                  </button>
+                    <button
+                      type="submit"
+                      className="flex-1 bg-durra-green text-white px-6 py-2.5 rounded-xl hover:bg-durra-green-light transition-all shadow-md active:scale-95 font-bold"
+                    >
+                      {editingDepartureId ? "تحديث السجل" : "حفظ المغادرة"}
+                    </button>
                   <button
                     type="button"
                     onClick={() => setShowDepartureModal(false)}

@@ -31,7 +31,8 @@ export default function Workers() {
     last_workplace: "",
     current_job: "",
     salary: 0,
-    has_social_security: 0
+    has_social_security: 0,
+    social_security_amount: 0
   });
   
   const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, id: number | null, name: string}>({
@@ -82,7 +83,8 @@ export default function Workers() {
         last_workplace: "",
         current_job: "",
         salary: 0,
-        has_social_security: 0
+        has_social_security: 0,
+        social_security_amount: 0
       });
     }
     setIsModalOpen(true);
@@ -391,18 +393,37 @@ export default function Workers() {
                 </div>
 
                 {/* Social Security */}
-                <div className="md:col-span-2 flex items-center gap-3 mt-2">
-                  <input
-                    type="checkbox"
-                    id="social_security"
-                    checked={!!formData.has_social_security}
-                    disabled={viewOnly}
-                    onChange={(e) => setFormData({...formData, has_social_security: e.target.checked ? 1 : 0})}
-                    className={`w-5 h-5 text-durra-green focus:ring-durra-green border-gray-300 dark:border-gray-600 rounded ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
-                  />
-                  <label htmlFor="social_security" className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer">
-                    مشمول في الضمان الاجتماعي
-                  </label>
+                <div className="md:col-span-2 flex flex-col gap-4 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="social_security"
+                      checked={!!formData.has_social_security}
+                      disabled={viewOnly}
+                      onChange={(e) => setFormData({...formData, has_social_security: e.target.checked ? 1 : 0})}
+                      className={`w-5 h-5 text-durra-green focus:ring-durra-green border-gray-300 dark:border-gray-600 rounded ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    />
+                    <label htmlFor="social_security" className="text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer">
+                      مشمول في الضمان الاجتماعي
+                    </label>
+                  </div>
+                  
+                  {!!formData.has_social_security && (
+                    <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">قيمة اقتطاع الضمان الشهري (دينار)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={formData.social_security_amount ?? ""}
+                        disabled={viewOnly}
+                        onChange={(e) => setFormData({...formData, social_security_amount: parseFloat(e.target.value) || 0})}
+                        className={`w-full max-w-xs px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        placeholder="أدخل المبلغ الذي سيخصم شهرياً..."
+                      />
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">سيتم خصم هذا المبلغ تلقائياً في بداية كل شهر من كشف حساب العامل.</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Notes */}

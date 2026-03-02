@@ -11,9 +11,17 @@ interface TimePickerProps {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  position?: "top" | "bottom";
 }
 
-export default function TimePicker({ value, onChange, disabled = false, placeholder = "00:00", className = "" }: TimePickerProps) {
+export default function TimePicker({ 
+  value, 
+  onChange, 
+  disabled = false, 
+  placeholder = "00:00", 
+  className = "",
+  position = "bottom"
+}: TimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -54,51 +62,67 @@ export default function TimePicker({ value, onChange, disabled = false, placehol
       </div>
 
       {isOpen && (
-        <div className="absolute z-50 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 p-3 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex gap-3 h-48">
+        <div className={`absolute z-50 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 p-4 animate-in fade-in duration-200 ${
+          position === "top" 
+            ? "bottom-full mb-2 slide-in-from-bottom-2" 
+            : "top-full mt-2 slide-in-from-top-2"
+        }`}>
+          <div className="space-y-4">
             {/* Hours */}
-            <div className="flex-1 overflow-y-auto scrollbar-hide space-y-1">
-              <div className="text-[10px] uppercase font-bold text-gray-400 mb-1 sticky top-0 bg-white dark:bg-gray-800 py-1">الساعة</div>
-              {hours.map(h => (
-                <button
-                  key={h}
-                  type="button"
-                  onClick={() => handleSelect(h, currentM)}
-                  className={`w-full py-1 text-sm rounded-lg transition-colors ${
-                    currentH === h 
-                      ? "bg-durra-green text-white font-bold" 
-                      : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  {h}
-                </button>
-              ))}
+            <div>
+              <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">الساعة</div>
+              <div className="grid grid-cols-6 gap-1">
+                {hours.map(h => (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => {
+                      onChange(`${h}:${currentM}`);
+                    }}
+                    className={`h-8 text-sm rounded-lg transition-all flex items-center justify-center font-medium ${
+                      currentH === h 
+                        ? "bg-durra-green text-white shadow-sm" 
+                        : "bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {h}
+                  </button>
+                ))}
+              </div>
             </div>
+
             {/* Minutes */}
-            <div className="flex-1 overflow-y-auto scrollbar-hide space-y-1 border-r border-gray-100 dark:border-gray-700 pr-2">
-              <div className="text-[10px] uppercase font-bold text-gray-400 mb-1 sticky top-0 bg-white dark:bg-gray-800 py-1">الدقيقة</div>
-              {minutes.map(m => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => handleSelect(currentH, m)}
-                  className={`w-full py-1 text-sm rounded-lg transition-colors ${
-                    currentM === m 
-                      ? "bg-durra-green text-white font-bold" 
-                      : "hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
+            <div>
+              <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">الدقيقة</div>
+              <div className="grid grid-cols-6 gap-1">
+                {minutes.map(m => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      onChange(`${currentH}:${m}`);
+                    }}
+                    className={`h-8 text-sm rounded-lg transition-all flex items-center justify-center font-medium ${
+                      currentM === m 
+                        ? "bg-durra-green text-white shadow-sm" 
+                        : "bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    {m}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
-          <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
-            <span className="text-xs font-bold text-durra-green">{currentH}:{currentM}</span>
+
+          <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-between items-center">
+            <span className="text-sm font-bold text-durra-green font-mono bg-durra-green/10 px-3 py-1 rounded-lg">
+              {currentH}:{currentM}
+            </span>
             <button 
               type="button"
               onClick={() => setIsOpen(false)}
-              className="text-xs font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              className="px-4 py-1.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold rounded-lg hover:opacity-90 transition-opacity"
             >
               تم
             </button>

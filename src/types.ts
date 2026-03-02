@@ -20,6 +20,7 @@ export interface Worker {
   current_job?: string;
   salary?: number;
   has_social_security?: number;
+  social_security_amount?: number;
 }
 
 export interface Task {

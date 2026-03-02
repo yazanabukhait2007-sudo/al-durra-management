@@ -1,101 +1,23 @@
-import React, { useState, useRef, useEffect } from "react";
-import { Calendar as CalendarIcon, ChevronRight, ChevronLeft } from "lucide-react";
+import React from "react";
+import { Calendar as CalendarIcon } from "lucide-react";
 
 interface MonthPickerProps {
   value: string; // Format: "YYYY-MM"
   onChange: (value: string) => void;
 }
 
-const MONTHS = [
-  "يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو",
-  "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"
-];
-
 export default function MonthPicker({ value, onChange }: MonthPickerProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Parse current value
-  const [currentYear, currentMonth] = value.split("-").map(Number);
-  const [viewYear, setViewYear] = useState(currentYear || new Date().getFullYear());
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleMonthSelect = (monthIndex: number) => {
-    const formattedMonth = (monthIndex + 1).toString().padStart(2, "0");
-    onChange(`${viewYear}-${formattedMonth}`);
-    setIsOpen(false);
-  };
-
-  const getDisplayValue = () => {
-    if (!value) return "اختر الشهر";
-    const [y, m] = value.split("-").map(Number);
-    return `${MONTHS[m - 1]} ${y}`;
-  };
-
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between pl-4 pr-11 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium transition-all hover:border-durra-green/50 text-right"
-      >
-        <span>{getDisplayValue()}</span>
-        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-          <CalendarIcon className="h-5 w-5 text-durra-green" />
-        </div>
-      </button>
-
-      {isOpen && (
-        <div className="absolute z-50 mt-2 w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 p-4">
-          <div className="flex items-center justify-between mb-4">
-            <button
-              type="button"
-              onClick={() => setViewYear(viewYear - 1)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            </button>
-            <span className="font-bold text-gray-800 dark:text-white">{viewYear}</span>
-            <button
-              type="button"
-              onClick={() => setViewYear(viewYear + 1)}
-              className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-300" />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-3 gap-2">
-            {MONTHS.map((monthName, index) => {
-              const isSelected = viewYear === currentYear && index + 1 === currentMonth;
-              return (
-                <button
-                  key={monthName}
-                  type="button"
-                  onClick={() => handleMonthSelect(index)}
-                  className={`py-2 px-1 text-sm rounded-lg transition-colors ${
-                    isSelected
-                      ? "bg-durra-green text-white font-bold shadow-sm"
-                      : "hover:bg-durra-green/10 dark:hover:bg-durra-green/20 text-gray-700 dark:text-gray-300"
-                  }`}
-                >
-                  {monthName}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+    <div className="relative">
+      <div className="relative">
+        <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 h-5 w-5 text-durra-green pointer-events-none" />
+        <input
+          type="month"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full pr-11 pl-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-medium transition-all hover:border-durra-green/50 text-right"
+        />
+      </div>
     </div>
   );
 }

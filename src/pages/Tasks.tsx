@@ -37,7 +37,7 @@ export default function Tasks() {
 
   const fetchTasks = async () => {
     try {
-      const res = await fetchWithAuth("/api/tasks");
+      const res = await fetchWithAuth("/api/tasks?active_only=true");
       const data = await res.json();
       setTasks(data);
     } catch (error) {

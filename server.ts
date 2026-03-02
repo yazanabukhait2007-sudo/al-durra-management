@@ -36,7 +36,8 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS tasks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
-    target_quantity INTEGER NOT NULL
+    target_quantity INTEGER NOT NULL,
+    is_active INTEGER DEFAULT 1
   );
 
   -- جدول التقييمات اليومية: السجل الرئيسي لتقييم الموظف في يوم محدد
@@ -117,12 +118,101 @@ db.exec(`
     notes TEXT,
     FOREIGN KEY (worker_id) REFERENCES workers(id)
   );
+
+  -- جدول الوظائف النظامية: لتتبع تنفيذ العمليات المجدولة
+  CREATE TABLE IF NOT EXISTS system_jobs (
+    job_name TEXT PRIMARY KEY,
+    last_run_date TEXT
+  );
+
+  -- جدول الإعدادات العامة
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  );
+  
+  -- إدراج القيم الافتراضية للإعدادات إذا لم تكن موجودة
+  INSERT OR IGNORE INTO app_settings (key, value) VALUES 
+    ('official_start_time', '08:00'),
+    ('official_end_time', '16:00'),
+    ('break_start_time', '12:00'),
+    ('break_end_time', '12:30'),
+    ('has_break', '1'),
+    ('overtime_rate', '1.25');
 `);
 
 // Add columns if they don't exist (for existing databases)
 try { db.exec("ALTER TABLE workers ADD COLUMN national_id TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE workers ADD COLUMN age INTEGER"); } catch (e) {}
 try { db.exec("ALTER TABLE workers ADD COLUMN notes TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE workers ADD COLUMN social_security_amount REAL DEFAULT 0"); } catch (e) {}
+try { db.exec("ALTER TABLE tasks ADD COLUMN is_active INTEGER DEFAULT 1"); } catch (e) {}
+
+// Helper to get settings
+function getSettings() {
+  const settings = db.prepare("SELECT key, value FROM app_settings").all() as {key: string, value: string}[];
+  return settings.reduce((acc, curr) => ({ ...acc, [curr.key]: curr.value }), {
+    official_start_time: '08:00',
+    official_end_time: '16:00',
+    break_start_time: '12:00',
+    break_end_time: '12:30',
+    has_break: '1',
+    overtime_rate: '1.25'
+  });
+}
+
+// Helper to calculate salary per hour (assuming 30 days, 8 hours/day)
+function calculateHourlyRate(salary: number) {
+  return salary / (30 * 8);
+}
+
+// وظيفة تطبيق خصم الضمان الاجتماعي الشهري
+function applyMonthlySocialSecurity() {
+  try {
+    const today = new Date();
+    const currentMonth = today.toISOString().slice(0, 7); // YYYY-MM
+    const firstOfMonth = `${currentMonth}-01`;
+    
+    // جلب كافة العمال الذين لديهم مبلغ ضمان اجتماعي
+    const workers = db.prepare("SELECT id, social_security_amount FROM workers WHERE social_security_amount > 0").all() as any[];
+    
+    const transaction = db.transaction(() => {
+      let appliedCount = 0;
+      for (const worker of workers) {
+        const description = `خصم الضمان الاجتماعي - شهر ${currentMonth}`;
+        // التحقق مما إذا كان الخصم قد تم تطبيقه مسبقاً لهذا العامل في هذا الشهر
+        const existing = db.prepare("SELECT id FROM worker_transactions WHERE worker_id = ? AND description = ?").get(worker.id, description);
+        
+        if (!existing) {
+          db.prepare(`
+            INSERT INTO worker_transactions (worker_id, type, amount, date, description)
+            VALUES (?, 'deduction', ?, ?, ?)
+          `).run(worker.id, worker.social_security_amount, firstOfMonth, description);
+          appliedCount++;
+        }
+      }
+      
+      // تحديث سجل الوظائف النظامية
+      const job = db.prepare("SELECT last_run_date FROM system_jobs WHERE job_name = 'social_security_deduction'").get() as any;
+      if (!job) {
+        db.prepare("INSERT INTO system_jobs (job_name, last_run_date) VALUES ('social_security_deduction', ?)").run(currentMonth);
+      } else {
+        db.prepare("UPDATE system_jobs SET last_run_date = ? WHERE job_name = 'social_security_deduction'").run(currentMonth);
+      }
+      return appliedCount;
+    });
+    
+    const count = transaction();
+    if (count > 0) {
+      console.log(`Applied social security deductions for ${count} workers for ${currentMonth}`);
+    }
+  } catch (err) {
+    console.error("Failed to apply monthly social security:", err);
+  }
+}
+
+// تنفيذ الخصم عند تشغيل السيرفر
+applyMonthlySocialSecurity();
 
 // Create default admin if not exists
 const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
@@ -224,6 +314,35 @@ async function startServer() {
   app.use(express.json());
 
   // --- API Routes ---
+
+  // Settings Routes
+  app.get("/api/settings", authenticateToken, (req, res) => {
+    try {
+      const settings = getSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch settings" });
+    }
+  });
+
+  app.put("/api/settings", authenticateToken, requirePermission("manage_users"), (req, res) => {
+    const { official_start_time, official_end_time, break_start_time, break_end_time, has_break, overtime_rate } = req.body;
+    try {
+      const update = db.prepare("INSERT OR REPLACE INTO app_settings (key, value) VALUES (?, ?)");
+      const transaction = db.transaction(() => {
+        if (official_start_time) update.run('official_start_time', official_start_time);
+        if (official_end_time) update.run('official_end_time', official_end_time);
+        if (break_start_time) update.run('break_start_time', break_start_time);
+        if (break_end_time) update.run('break_end_time', break_end_time);
+        if (has_break !== undefined) update.run('has_break', has_break ? '1' : '0');
+        if (overtime_rate) update.run('overtime_rate', overtime_rate.toString());
+      });
+      transaction();
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update settings" });
+    }
+  });
 
   // Auth
   app.post("/api/auth/signup", (req, res) => {
@@ -401,12 +520,12 @@ async function startServer() {
 
   // إضافة عامل جديد
   app.post("/api/workers", authenticateToken, requirePermission("manage_workers"), (req, res) => {
-    const { name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes } = req.body;
+    const { name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, social_security_amount, notes } = req.body;
     if (!name) return res.status(400).json({ error: "Name is required" });
     try {
       const info = db.prepare(`
-        INSERT INTO workers (name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO workers (name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, social_security_amount, notes) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         name, 
         phone || null, 
@@ -418,10 +537,11 @@ async function startServer() {
         current_job || null, 
         salary || null, 
         has_social_security ? 1 : 0,
+        social_security_amount || 0,
         notes || null
       );
       logAction(req, "CREATE_WORKER", "worker", Number(info.lastInsertRowid), `Created worker: ${name}`);
-      res.json({ id: info.lastInsertRowid, name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes });
+      res.json({ id: info.lastInsertRowid, name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, social_security_amount, notes });
     } catch (err) {
       res.status(400).json({ error: "Worker already exists or invalid data" });
     }
@@ -429,7 +549,7 @@ async function startServer() {
 
   app.put("/api/workers/:id", authenticateToken, requirePermission("manage_workers"), (req, res) => {
     const { id } = req.params;
-    const { name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, notes } = req.body;
+    const { name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, social_security_amount, notes } = req.body;
     if (!name) return res.status(400).json({ error: "Name is required" });
     try {
       const oldWorker = db.prepare("SELECT * FROM workers WHERE id = ?").get(id) as any;
@@ -445,6 +565,7 @@ async function startServer() {
           oldWorker.current_job !== (current_job || null) ||
           oldWorker.salary !== (salary || null) ||
           oldWorker.has_social_security !== (has_social_security ? 1 : 0) ||
+          oldWorker.social_security_amount !== (social_security_amount || 0) ||
           oldWorker.notes !== (notes || null);
         
         if (!hasChanges) {
@@ -454,7 +575,7 @@ async function startServer() {
 
       db.prepare(`
         UPDATE workers 
-        SET name = ?, phone = ?, alt_phone = ?, address = ?, national_id = ?, age = ?, last_workplace = ?, current_job = ?, salary = ?, has_social_security = ?, notes = ?
+        SET name = ?, phone = ?, alt_phone = ?, address = ?, national_id = ?, age = ?, last_workplace = ?, current_job = ?, salary = ?, has_social_security = ?, social_security_amount = ?, notes = ?
         WHERE id = ?
       `).run(
         name, 
@@ -467,6 +588,7 @@ async function startServer() {
         current_job || null, 
         salary || null, 
         has_social_security ? 1 : 0,
+        social_security_amount || 0,
         notes || null,
         id
       );
@@ -514,6 +636,9 @@ async function startServer() {
     const { id } = req.params;
     const { month } = req.query; // format: YYYY-MM
     
+    // التأكد من تطبيق خصم الضمان الاجتماعي قبل جلب الحركات
+    applyMonthlySocialSecurity();
+
     let query = "SELECT * FROM worker_transactions WHERE worker_id = ?";
     const params: any[] = [id];
     
@@ -577,7 +702,12 @@ async function startServer() {
 
   // Tasks
   app.get("/api/tasks", authenticateToken, requirePermission("manage_tasks"), (req, res) => {
-    const tasks = db.prepare("SELECT * FROM tasks").all();
+    const { active_only } = req.query;
+    let query = "SELECT * FROM tasks";
+    if (active_only === 'true') {
+      query += " WHERE is_active = 1";
+    }
+    const tasks = db.prepare(query).all();
     res.json(tasks);
   });
 
@@ -609,17 +739,21 @@ async function startServer() {
   app.delete("/api/tasks/:id", authenticateToken, requirePermission("manage_tasks"), (req, res) => {
     const { id } = req.params;
     
-    const transaction = db.transaction(() => {
-      // Delete task entries
-      db.prepare("DELETE FROM task_entries WHERE task_id = ?").run(id);
-      // Delete task
-      db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
-    });
-
     try {
-      transaction();
-      logAction(req, "DELETE_TASK", "task", parseInt(id), "Deleted task");
-      res.json({ success: true });
+      // Check if task has entries
+      const hasEntries = db.prepare("SELECT id FROM task_entries WHERE task_id = ? LIMIT 1").get(id);
+      
+      if (hasEntries) {
+        // Soft delete: just mark as inactive
+        db.prepare("UPDATE tasks SET is_active = 0 WHERE id = ?").run(id);
+        logAction(req, "SOFT_DELETE_TASK", "task", parseInt(id), "Marked task as inactive because it has entries");
+        return res.json({ success: true, message: "Task marked as inactive because it has history" });
+      } else {
+        // Hard delete: safe to remove
+        db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+        logAction(req, "DELETE_TASK", "task", parseInt(id), "Deleted task");
+        return res.json({ success: true });
+      }
     } catch (err) {
       console.error("Failed to delete task:", err);
       res.status(500).json({ error: "Failed to delete task" });
@@ -883,48 +1017,163 @@ async function startServer() {
   // تسجيل الحضور والغياب
   app.post("/api/attendance", authenticateToken, requirePermission("manage_attendance"), (req, res) => {
     const { worker_id, date, status, check_in, check_out, notes } = req.body;
-    if (!worker_id || !date || !status) return res.status(400).json({ error: "Missing fields" });
-
-    const transaction = db.transaction(() => {
-      const existing = db.prepare("SELECT id FROM attendance WHERE worker_id = ? AND date = ?").get(worker_id, date) as any;
-      
-      if (existing) {
-        db.prepare(`
-          UPDATE attendance 
-          SET status = ?, check_in = ?, check_out = ?, notes = ?
-          WHERE id = ?
-        `).run(status, check_in || null, check_out || null, notes || null, existing.id);
-      } else {
-        db.prepare(`
-          INSERT INTO attendance (worker_id, date, status, check_in, check_out, notes)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).run(worker_id, date, status, check_in || null, check_out || null, notes || null);
-      }
-
-      // Handle Account Statement (Transactions)
-      const worker = db.prepare("SELECT salary FROM workers WHERE id = ?").get(worker_id) as any;
-      const salary = worker?.salary || 0;
-      const deductionAmount = salary > 0 ? Number((salary / 30).toFixed(2)) : 0;
-      const description = `غياب - ${date}`;
-
-      if (status === 'absent') {
-        if (deductionAmount > 0) {
-          // Check if transaction already exists
-          const existingTrans = db.prepare("SELECT id FROM worker_transactions WHERE worker_id = ? AND description = ?").get(worker_id, description);
-          if (!existingTrans) {
-            db.prepare(`
-              INSERT INTO worker_transactions (worker_id, type, amount, date, description)
-              VALUES (?, 'deduction', ?, ?, ?)
-            `).run(worker_id, deductionAmount, date, description);
-          }
-        }
-      } else {
-        // If status changed from absent to something else, remove the deduction
-        db.prepare("DELETE FROM worker_transactions WHERE worker_id = ? AND description = ?").run(worker_id, description);
-      }
-    });
+    
+    if (!worker_id || !date || !status) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
 
     try {
+      const settings = getSettings();
+      const worker = db.prepare("SELECT salary FROM workers WHERE id = ?").get(worker_id) as any;
+      
+      const transaction = db.transaction(() => {
+        // 1. Save Attendance
+        const existing = db.prepare("SELECT id FROM attendance WHERE worker_id = ? AND date = ?").get(worker_id, date) as any;
+        
+        let finalNotes = notes || "";
+        let overtimeAmount = 0;
+
+        // Calculate Overtime if present and checked out
+        if (status === 'present' && check_out && settings.official_end_time) {
+          const [outH, outM] = check_out.split(':').map(Number);
+          const [endH, endM] = settings.official_end_time.split(':').map(Number);
+          
+          const outMinutes = outH * 60 + outM;
+          const endMinutes = endH * 60 + endM;
+          
+          if (outMinutes > endMinutes) {
+            const extraMinutes = outMinutes - endMinutes;
+            const extraHours = extraMinutes / 60;
+            
+            // Calculate Bonus
+            if (worker && worker.salary) {
+              const hourlyRate = calculateHourlyRate(worker.salary);
+              const rateMultiplier = parseFloat(settings.overtime_rate) || 1.0;
+              overtimeAmount = hourlyRate * extraHours * rateMultiplier;
+              
+              finalNotes += ` | عمل إضافي: ${Math.floor(extraHours)}س ${extraMinutes % 60}د`;
+            }
+          }
+        }
+
+        if (existing) {
+          db.prepare(`
+            UPDATE attendance 
+            SET status = ?, check_in = ?, check_out = ?, notes = ?
+            WHERE id = ?
+          `).run(status, check_in || null, check_out || null, finalNotes, existing.id);
+        } else {
+          db.prepare(`
+            INSERT INTO attendance (worker_id, date, status, check_in, check_out, notes)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).run(worker_id, date, status, check_in || null, check_out || null, finalNotes);
+        }
+
+        // 2. Add Overtime Transaction if applicable
+        if (overtimeAmount > 0) {
+          const desc = `عمل إضافي - ${date}`;
+          // Check if already exists to avoid duplicates on re-save
+          const existingTrans = db.prepare("SELECT id FROM worker_transactions WHERE worker_id = ? AND date = ? AND type = 'bonus' AND description LIKE 'عمل إضافي%'").get(worker_id, date) as any;
+          
+          if (existingTrans) {
+            db.prepare("UPDATE worker_transactions SET amount = ? WHERE id = ?").run(overtimeAmount, existingTrans.id);
+          } else {
+            db.prepare(`
+              INSERT INTO worker_transactions (worker_id, type, amount, date, description)
+              VALUES (?, 'bonus', ?, ?, ?)
+            `).run(worker_id, overtimeAmount, date, desc);
+          }
+        }
+
+        // 3. Handle Early Departure Deduction
+        let earlyDepartureAmount = 0;
+        let earlyDepartureDesc = `خصم خروج مبكر - ${date}`;
+
+        if (status === 'present' && check_out && settings.official_end_time && settings.official_start_time) {
+          const [outH, outM] = check_out.split(':').map(Number);
+          const [endH, endM] = settings.official_end_time.split(':').map(Number);
+          const [startH, startM] = settings.official_start_time.split(':').map(Number);
+
+          const outMinutes = outH * 60 + outM;
+          const endMinutes = endH * 60 + endM;
+          const startMinutes = startH * 60 + startM;
+
+          // Calculate Break Duration
+          let breakDurationMinutes = 0;
+          if (settings.has_break === '1' && settings.break_start_time && settings.break_end_time) {
+              const [bStartH, bStartM] = settings.break_start_time.split(':').map(Number);
+              const [bEndH, bEndM] = settings.break_end_time.split(':').map(Number);
+              breakDurationMinutes = (bEndH * 60 + bEndM) - (bStartH * 60 + bStartM);
+              if (breakDurationMinutes < 0) breakDurationMinutes = 0;
+          }
+
+          // Calculate Total Work Minutes (Official)
+          const totalWorkMinutes = (endMinutes - startMinutes) - breakDurationMinutes;
+
+          if (outMinutes < endMinutes && totalWorkMinutes > 0) {
+            const earlyMinutes = endMinutes - outMinutes;
+            
+            // Calculate Hourly Rate
+            // Daily Wage = Salary / 30
+            // Hourly Rate = Daily Wage / (Total Work Minutes / 60)
+            if (worker && worker.salary) {
+                const dailyWage = worker.salary / 30;
+                const workHours = totalWorkMinutes / 60;
+                const hourlyRate = dailyWage / workHours;
+                
+                const earlyHours = earlyMinutes / 60;
+                earlyDepartureAmount = Number((earlyHours * hourlyRate).toFixed(2));
+                
+                // Add duration to description
+                const h = Math.floor(earlyMinutes / 60);
+                const m = earlyMinutes % 60;
+                const durationStr = h > 0 ? `${h}س ${m}د` : `${m}د`;
+                earlyDepartureDesc += ` (${durationStr})`;
+            }
+          }
+        }
+
+        // Update/Insert/Delete Early Departure Transaction
+        const existingEarlyTrans = db.prepare("SELECT id FROM worker_transactions WHERE worker_id = ? AND date = ? AND type = 'deduction' AND description LIKE 'خصم خروج مبكر%'").get(worker_id, date) as any;
+
+        if (earlyDepartureAmount > 0) {
+            if (existingEarlyTrans) {
+                db.prepare("UPDATE worker_transactions SET amount = ?, description = ? WHERE id = ?").run(earlyDepartureAmount, earlyDepartureDesc, existingEarlyTrans.id);
+            } else {
+                db.prepare(`
+                    INSERT INTO worker_transactions (worker_id, type, amount, date, description)
+                    VALUES (?, 'deduction', ?, ?, ?)
+                `).run(worker_id, earlyDepartureAmount, date, earlyDepartureDesc);
+            }
+        } else {
+            // If no early departure (or fixed), remove existing transaction
+            if (existingEarlyTrans) {
+                db.prepare("DELETE FROM worker_transactions WHERE id = ?").run(existingEarlyTrans.id);
+            }
+        }
+
+        // Handle Account Statement (Transactions) for Absence
+        const salary = worker?.salary || 0;
+        const deductionAmount = salary > 0 ? Number((salary / 30).toFixed(2)) : 0;
+        const description = `غياب - ${date}`;
+
+        if (status === 'absent') {
+          if (deductionAmount > 0) {
+            // Check if transaction already exists
+            const existingTrans = db.prepare("SELECT id FROM worker_transactions WHERE worker_id = ? AND description = ?").get(worker_id, description);
+            if (!existingTrans) {
+              db.prepare(`
+                INSERT INTO worker_transactions (worker_id, type, amount, date, description)
+                VALUES (?, 'deduction', ?, ?, ?)
+              `).run(worker_id, deductionAmount, date, description);
+            }
+          }
+        } else {
+          // If status changed from absent to something else, remove the deduction
+          db.prepare("DELETE FROM worker_transactions WHERE worker_id = ? AND description = ?").run(worker_id, description);
+        }
+      });
+
       transaction();
       res.json({ success: true });
     } catch (error) {
@@ -965,6 +1214,8 @@ async function startServer() {
         VALUES (?, ?, ?, ?, ?, ?)
       `).run(worker_id, date, type, start_time, end_time || null, notes || null);
 
+      let durationHours = 0;
+
       if (start_time && end_time) {
         const [h1, m1] = start_time.split(':').map(Number);
         const [h2, m2] = end_time.split(':').map(Number);
@@ -973,6 +1224,7 @@ async function startServer() {
         
         const hours = Math.floor(diffMinutes / 60);
         const mins = diffMinutes % 60;
+        durationHours = diffMinutes / 60;
         
         let durationStr = "مغادرة: ";
         if (hours > 0) durationStr += `${hours} ساعة `;
@@ -997,6 +1249,26 @@ async function startServer() {
         }
       }
 
+      // Calculate Deduction
+      const worker = db.prepare("SELECT salary FROM workers WHERE id = ?").get(worker_id) as any;
+      if (worker && worker.salary && durationHours > 0) {
+        const hourlyRate = calculateHourlyRate(worker.salary);
+        const deductionAmount = hourlyRate * durationHours;
+        
+        const desc = `خصم مغادرة - ${date} (${type === 'work' ? 'مهمة عمل' : 'خروج مبكر'})`;
+        
+        // Only deduct if NOT 'work' type? Usually work missions are paid. 
+        // User said "deduct automatically based on departure hours". 
+        // Assuming 'work' mission is NOT deducted, but 'early' or others are.
+        // But user request was general. Let's assume 'early' is deducted. 'work' is NOT.
+        if (type !== 'work') {
+           db.prepare(`
+            INSERT INTO worker_transactions (worker_id, type, amount, date, description)
+            VALUES (?, 'deduction', ?, ?, ?)
+          `).run(worker_id, deductionAmount, date, desc);
+        }
+      }
+
       return info.lastInsertRowid;
     });
 
@@ -1017,6 +1289,24 @@ async function startServer() {
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete departure:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  app.put("/api/departures/:id", authenticateToken, requirePermission("manage_attendance"), (req, res) => {
+    const { id } = req.params;
+    const { worker_id, date, type, start_time, end_time, notes } = req.body;
+    if (!worker_id || !date || !type || !start_time) return res.status(400).json({ error: "Missing fields" });
+
+    try {
+      db.prepare(`
+        UPDATE departures 
+        SET worker_id = ?, date = ?, type = ?, start_time = ?, end_time = ?, notes = ?
+        WHERE id = ?
+      `).run(worker_id, date, type, start_time, end_time || null, notes || null, id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to update departure:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   });

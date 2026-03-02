@@ -33,7 +33,7 @@ export default function AddEvaluation() {
   };
 
   const fetchTasks = async () => {
-    const res = await fetchWithAuth("/api/tasks");
+    const res = await fetchWithAuth("/api/tasks?active_only=true");
     setTasks(await res.json());
   };
 
