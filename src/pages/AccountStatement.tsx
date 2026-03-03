@@ -219,7 +219,7 @@ export default function AccountStatement() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">إدارة رواتب وحسابات العمال</p>
         </div>
         <div className="w-full sm:w-auto">
-          <MonthPicker value={selectedMonth} onChange={setSelectedMonth} />
+          <MonthPicker value={selectedMonth} onChange={setSelectedMonth} align="left" />
         </div>
       </div>
 

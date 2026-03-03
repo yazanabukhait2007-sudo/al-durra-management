@@ -6,9 +6,10 @@ import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-reac
 interface MonthPickerProps {
   value: string; // Format: "YYYY-MM"
   onChange: (value: string) => void;
+  align?: "left" | "right";
 }
 
-export default function MonthPicker({ value, onChange }: MonthPickerProps) {
+export default function MonthPicker({ value, onChange, align = "right" }: MonthPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const containerRef = useRef<HTMLDivElement>(null);
@@ -65,7 +66,7 @@ export default function MonthPicker({ value, onChange }: MonthPickerProps) {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 -right-24 z-[100] bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-4 w-[280px] animate-in fade-in zoom-in-95 duration-200">
+        <div className={`absolute top-full mt-2 z-[100] bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-4 w-[280px] animate-in fade-in zoom-in-95 duration-200 ${align === 'left' ? 'left-0' : 'right-0'}`}>
           {/* Header */}
           <div className="flex items-center justify-between mb-4 px-2">
             <button onClick={prevYear} type="button" className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">
