@@ -5,54 +5,27 @@
 import React, { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { arSA } from "date-fns/locale";
-import { Calendar, Clock, UserCheck, UserX, AlertCircle, Plus, Trash2, X, Save, FileText, Edit } from "lucide-react";
+import { Clock, Plus, X, Save } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { fetchWithAuth } from "../utils/api";
-import { AttendanceRecord, DepartureRecord, Worker } from "../types";
-import Logo from "../components/Logo";
-import ConfirmModal from "../components/ConfirmModal";
+import { AttendanceRecord, Worker } from "../types";
 import AttendanceSheet from "./AttendanceSheet";
 import DatePicker from "../components/DatePicker";
 import TimePicker from "../components/TimePicker";
-import CustomSelect from "../components/CustomSelect";
-import { User } from "lucide-react";
-
-// Helper to calculate duration
-function calculateDuration(start: string, end: string) {
-  if (!start || !end) return "-";
-  const [h1, m1] = start.split(':').map(Number);
-  const [h2, m2] = end.split(':').map(Number);
-  let diff = (h2 * 60 + m2) - (h1 * 60 + m1);
-  if (diff < 0) diff += 24 * 60;
-  const hours = Math.floor(diff / 60);
-  const mins = diff % 60;
-  return `${hours}:${mins.toString().padStart(2, '0')}`;
-}
 
 export default function Attendance() {
   const { user } = useAuth();
   const { showToast } = useToast();
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [activeTab, setActiveTab] = useState<'attendance' | 'departures' | 'report'>('attendance');
+  const [activeTab, setActiveTab] = useState<'attendance' | 'report'>('attendance');
   const [loading, setLoading] = useState(true);
   
   // Attendance State
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [savingAttendance, setSavingAttendance] = useState(false);
 
-  // Departures State
-  const [departures, setDepartures] = useState<DepartureRecord[]>([]);
   const [workers, setWorkers] = useState<Worker[]>([]);
-  const [showDepartureModal, setShowDepartureModal] = useState(false);
-  const [editingDepartureId, setEditingDepartureId] = useState<number | null>(null);
-  const [newDeparture, setNewDeparture] = useState({
-    worker_id: "",
-    type: "work",
-    start_time: format(new Date(), "HH:mm"),
-    end_time: "",
-    notes: ""
-  });
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [bulkAttendance, setBulkAttendance] = useState<Record<number, {
     status: string;
@@ -79,20 +52,6 @@ export default function Attendance() {
     }
   }, [showAttendanceModal, workers, attendanceRecords]);
 
-  const [deleteDepartureId, setDeleteDepartureId] = useState<number | null>(null);
-
-  const handleOpenDepartureModal = () => {
-    setEditingDepartureId(null);
-    setNewDeparture({
-      worker_id: "",
-      type: "work",
-      start_time: format(new Date(), "HH:mm"),
-      end_time: "",
-      notes: ""
-    });
-    setShowDepartureModal(true);
-  };
-
   useEffect(() => {
     // Fetch workers for the dropdown
     fetchWithAuth("/api/workers")
@@ -114,10 +73,6 @@ export default function Attendance() {
         const res = await fetchWithAuth(`/api/attendance?date=${selectedDate}`);
         const data = await res.json();
         setAttendanceRecords(data);
-      } else {
-        const res = await fetchWithAuth(`/api/departures?date=${selectedDate}`);
-        const data = await res.json();
-        setDepartures(data);
       }
     } catch (error) {
       console.error("Failed to fetch data", error);
@@ -132,71 +87,6 @@ export default function Attendance() {
     fetchData();
   }, [activeTab, selectedDate]);
 
-  const handleAddDeparture = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDeparture.worker_id || !newDeparture.start_time) return;
-
-    try {
-      const isEdit = !!editingDepartureId;
-      const url = isEdit ? `/api/departures/${editingDepartureId}` : "/api/departures";
-      const method = isEdit ? "PUT" : "POST";
-
-      const res = await fetchWithAuth(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...newDeparture,
-          date: selectedDate,
-          worker_id: parseInt(newDeparture.worker_id)
-        })
-      });
-
-      if (res.ok) {
-        showToast(isEdit ? "تم تحديث المغادرة بنجاح" : "تم إضافة المغادرة بنجاح", "success");
-        setShowDepartureModal(false);
-        setEditingDepartureId(null);
-        setNewDeparture({
-          worker_id: "",
-          type: "work",
-          start_time: format(new Date(), "HH:mm"),
-          end_time: "",
-          notes: ""
-        });
-        fetchData();
-      }
-    } catch (error) {
-      showToast("فشل حفظ المغادرة", "error");
-    }
-  };
-
-  const handleEditDeparture = (dep: DepartureRecord) => {
-    setEditingDepartureId(dep.id);
-    setNewDeparture({
-      worker_id: dep.worker_id.toString(),
-      type: dep.type,
-      start_time: dep.start_time,
-      end_time: dep.end_time || "",
-      notes: dep.notes || ""
-    });
-    setShowDepartureModal(true);
-  };
-
-  const handleDeleteDeparture = async () => {
-    if (!deleteDepartureId) return;
-    try {
-      const res = await fetchWithAuth(`/api/departures/${deleteDepartureId}`, {
-        method: "DELETE"
-      });
-      if (res.ok) {
-        showToast("تم حذف المغادرة", "success");
-        setDeleteDepartureId(null);
-        fetchData();
-      }
-    } catch (error) {
-      showToast("فشل حذف المغادرة", "error");
-    }
-  };
-
   const canManage = user?.role === 'admin' || user?.permissions.includes('manage_attendance');
 
   const handleBulkChange = (workerId: number, field: string, value: any) => {
@@ -206,7 +96,8 @@ export default function Attendance() {
         [field]: value
       };
 
-      // Auto-calculate early departure note
+      // حساب ملاحظة الخروج المبكر تلقائياً (Auto-calculate early departure note)
+      // يتم إضافة ملاحظة نصية فقط هنا للعرض، أما الخصم المالي فيتم في السيرفر
       if (field === 'check_out' && settings?.official_end_time && value) {
         const [h1, m1] = value.split(':').map(Number);
         const [h2, m2] = settings.official_end_time.split(':').map(Number);
@@ -231,15 +122,15 @@ export default function Attendance() {
           
           const earlyNote = `خروج مبكر ${parts.join(" و ")}`;
           
-          // Only add if not already present to avoid duplication/overwrite of user custom notes
+          // إضافة الملاحظة إذا لم تكن موجودة مسبقاً لتجنب التكرار
           if (!workerData.notes.includes("خروج مبكر")) {
              workerData.notes = workerData.notes ? `${workerData.notes} - ${earlyNote}` : earlyNote;
           } else {
-             // Update existing early departure note
+             // تحديث الملاحظة الموجودة إذا تغير الوقت
              workerData.notes = workerData.notes.replace(/خروج مبكر.*$/, earlyNote);
           }
         } else {
-          // Remove early departure note if user changes time back to normal
+          // إزالة الملاحظة إذا قام المستخدم بتعديل الوقت ليصبح نظامياً
           if (workerData.notes.includes("خروج مبكر")) {
              workerData.notes = workerData.notes
                .replace(/ - خروج مبكر.*$/, "")
@@ -326,19 +217,6 @@ export default function Attendance() {
           )}
         </button>
         <button
-          onClick={() => setActiveTab('departures')}
-          className={`px-6 py-3 font-medium text-sm transition-all relative ${
-            activeTab === 'departures' 
-              ? 'text-durra-green' 
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-          }`}
-        >
-          المغادرات
-          {activeTab === 'departures' && (
-            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-durra-green rounded-t-full" />
-          )}
-        </button>
-        <button
           onClick={() => setActiveTab('report')}
           className={`px-6 py-3 font-medium text-sm transition-all relative ${
             activeTab === 'report' 
@@ -361,7 +239,7 @@ export default function Attendance() {
           </div>
         ) : activeTab === 'report' ? (
           <AttendanceSheet />
-        ) : activeTab === 'attendance' ? (
+        ) : (
           <div className="p-6">
             {canManage && (
               <div className="mb-6 flex justify-end">
@@ -422,8 +300,8 @@ export default function Attendance() {
                         {record.check_out || '-'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                    <td className="px-6 py-4 max-w-xs">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 block whitespace-pre-wrap">
                         {record.notes || '-'}
                       </span>
                     </td>
@@ -436,88 +314,6 @@ export default function Attendance() {
             </table>
           </div>
         </div>
-        ) : activeTab === 'report' ? (
-          <AttendanceSheet />
-        ) : activeTab === 'departures' ? (
-          <div className="p-6">
-            {canManage && (
-              <div className="mb-6 flex justify-end">
-                <button
-                  onClick={handleOpenDepartureModal}
-                  className="bg-durra-green text-white px-6 py-2.5 rounded-xl hover:bg-durra-green-light transition-all shadow-md active:scale-95 font-bold flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  تسجيل مغادرة جديدة
-                </button>
-              </div>
-            )}
-
-            {departures.length === 0 ? (
-              <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                <UserX className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>لا توجد مغادرات مسجلة لهذا اليوم</p>
-              </div>
-            ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {departures.map((dep) => (
-                  <div key={dep.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-4 border border-gray-100 dark:border-gray-700 relative group hover:shadow-md transition-all">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-bold text-gray-900 dark:text-white">{dep.worker_name}</h3>
-                        <span className={`text-xs px-2 py-0.5 rounded-full mt-1 inline-block ${
-                          dep.type === 'work' ? 'bg-blue-100 text-blue-700' :
-                          'bg-purple-100 text-purple-700'
-                        }`}>
-                          {dep.type === 'work' ? 'مهمة عمل' : 'خروج مبكر'}
-                        </span>
-                      </div>
-                      {canManage && (
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handleEditDeparture(dep)}
-                            className="text-blue-500 hover:text-blue-700 p-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                            title="تعديل"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteDepartureId(dep.id)}
-                            className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                            title="حذف"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300 mb-3">
-                      <div className="flex items-center gap-1">
-                        <span className="font-medium">من:</span>
-                        <span className="font-mono bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-600">{dep.start_time}</span>
-                      </div>
-                      {dep.end_time && (
-                        <div className="flex items-center gap-1">
-                          <span className="font-medium">إلى:</span>
-                          <span className="font-mono bg-white dark:bg-gray-800 px-2 py-0.5 rounded border border-gray-200 dark:border-gray-600">{dep.end_time}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {dep.notes && (
-                      <p className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-600">
-                        {dep.notes}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="p-6">
-            <AttendanceSheet isSubComponent={true} />
-          </div>
         )}
       </div>
 
@@ -640,119 +436,6 @@ export default function Attendance() {
           </div>
         </div>
       )}
-
-      {/* Add Departure Modal */}
-      {showDepartureModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-10">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-xl animate-in fade-in zoom-in duration-200">
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                    {editingDepartureId ? "تعديل سجل مغادرة" : "تسجيل مغادرة جديدة"}
-                  </h3>
-                  <button 
-                    onClick={() => setShowDepartureModal(false)}
-                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
-                </div>
-
-              <form onSubmit={handleAddDeparture} className="space-y-4 pb-10">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">الموظف</label>
-                  <CustomSelect
-                    value={newDeparture.worker_id}
-                    onChange={(val) => setNewDeparture({...newDeparture, worker_id: val})}
-                    options={workers.map(w => ({
-                      value: w.id.toString(),
-                      label: w.name,
-                      subLabel: w.current_job || undefined
-                    }))}
-                    placeholder="اختر الموظف..."
-                    icon={<User className="w-5 h-5 text-durra-green" />}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">نوع المغادرة</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { value: 'work', label: 'عمل' },
-                      { value: 'early', label: 'خروج مبكر' },
-                    ].map(type => (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() => setNewDeparture({...newDeparture, type: type.value})}
-                        className={`py-2 rounded-xl text-sm font-medium border transition-all ${
-                          newDeparture.type === type.value
-                            ? 'bg-durra-green text-white border-durra-green'
-                            : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50'
-                        }`}
-                      >
-                        {type.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">وقت الخروج</label>
-                    <TimePicker
-                      value={newDeparture.start_time}
-                      onChange={(val) => setNewDeparture({...newDeparture, start_time: val})}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">وقت العودة (اختياري)</label>
-                    <TimePicker
-                      value={newDeparture.end_time}
-                      onChange={(val) => setNewDeparture({...newDeparture, end_time: val})}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">ملاحظات</label>
-                  <textarea
-                    value={newDeparture.notes}
-                    onChange={(e) => setNewDeparture({...newDeparture, notes: e.target.value})}
-                    className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none h-24 resize-none"
-                    placeholder="سبب المغادرة..."
-                  />
-                </div>
-
-                <div className="flex gap-3 pt-4">
-                    <button
-                      type="submit"
-                      className="flex-1 bg-durra-green text-white px-6 py-2.5 rounded-xl hover:bg-durra-green-light transition-all shadow-md active:scale-95 font-bold"
-                    >
-                      {editingDepartureId ? "تحديث السجل" : "حفظ المغادرة"}
-                    </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowDepartureModal(false)}
-                    className="px-6 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors font-medium"
-                  >
-                    إلغاء
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <ConfirmModal
-        isOpen={!!deleteDepartureId}
-        title="حذف مغادرة"
-        message="هل أنت متأكد من حذف سجل المغادرة هذا؟"
-        confirmText="نعم، احذف"
-        onConfirm={handleDeleteDeparture}
-        onCancel={() => setDeleteDepartureId(null)}
-      />
     </div>
   );
 }

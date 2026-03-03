@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Clock } from "lucide-react";
 
 interface TimePickerProps {
@@ -23,12 +24,19 @@ export default function TimePicker({
   position = "bottom"
 }: TimePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({});
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        triggerRef.current && 
+        !triggerRef.current.contains(event.target as Node) &&
+        contentRef.current &&
+        !contentRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
@@ -36,17 +44,55 @@ export default function TimePicker({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Update position when open
+  useEffect(() => {
+    if (isOpen && triggerRef.current) {
+      const updatePosition = () => {
+        if (!triggerRef.current) return;
+        const rect = triggerRef.current.getBoundingClientRect();
+        
+        // Dropdown width is w-80 (20rem = 320px)
+        const dropdownWidth = 320;
+        
+        // Calculate left position (Align right in RTL)
+        // In RTL, we want the right edge of the dropdown to match the right edge of the trigger
+        let left = rect.right - dropdownWidth;
+        
+        // Prevent going off-screen left
+        if (left < 10) left = 10;
+        
+        // Prevent going off-screen right (if window is small)
+        if (left + dropdownWidth > window.innerWidth - 10) {
+          left = window.innerWidth - dropdownWidth - 10;
+        }
+
+        setDropdownStyle({
+          position: 'fixed',
+          top: `${rect.bottom + 8}px`, // 8px gap
+          left: `${left}px`,
+          zIndex: 9999,
+          width: `${dropdownWidth}px`
+        });
+      };
+
+      updatePosition();
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      
+      return () => {
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
+    }
+  }, [isOpen]);
+
   const hours = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, "0"));
   const minutes = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, "0"));
 
   const [currentH, currentM] = value ? value.split(":") : ["08", "00"];
 
-  const handleSelect = (h: string, m: string) => {
-    onChange(`${h}:${m}`);
-  };
-
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
+    <div className={`relative ${className}`} ref={triggerRef}>
       <div 
         onClick={() => !disabled && setIsOpen(!isOpen)}
         className={`flex items-center gap-2 px-3 py-2 border rounded-xl cursor-pointer transition-all ${
@@ -61,16 +107,17 @@ export default function TimePicker({
         </span>
       </div>
 
-      {isOpen && (
-        <div className={`absolute z-50 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 p-4 animate-in fade-in duration-200 ${
-          position === "top" 
-            ? "bottom-full mb-2 slide-in-from-bottom-2" 
-            : "top-full mt-2 slide-in-from-top-2"
-        }`}>
+      {isOpen && createPortal(
+        <div 
+          ref={contentRef}
+          style={dropdownStyle}
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 p-4 animate-in fade-in duration-200"
+        >
           <div className="space-y-4">
             {/* Hours */}
             <div>
               <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mb-2">الساعة</div>
+              {/* عرض الساعات في شبكة (Grid) لتسهيل الاختيار */}
               <div className="grid grid-cols-6 gap-1">
                 {hours.map(h => (
                   <button
@@ -127,7 +174,8 @@ export default function TimePicker({
               تم
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

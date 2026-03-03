@@ -167,6 +167,7 @@ function calculateHourlyRate(salary: number) {
 }
 
 // وظيفة تطبيق خصم الضمان الاجتماعي الشهري
+// ملاحظة: هذه الوظيفة تعمل عند تشغيل السيرفر. في بيئة الإنتاج الحقيقية، يفضل استخدام cron job لجدولتها.
 function applyMonthlySocialSecurity() {
   try {
     const today = new Date();
@@ -1027,13 +1028,14 @@ async function startServer() {
       const worker = db.prepare("SELECT salary FROM workers WHERE id = ?").get(worker_id) as any;
       
       const transaction = db.transaction(() => {
-        // 1. Save Attendance
+        // 1. حفظ سجل الحضور (Save Attendance)
         const existing = db.prepare("SELECT id FROM attendance WHERE worker_id = ? AND date = ?").get(worker_id, date) as any;
         
         let finalNotes = notes || "";
         let overtimeAmount = 0;
 
-        // Calculate Overtime if present and checked out
+        // حساب العمل الإضافي (Overtime)
+        // يتم احتساب العمل الإضافي إذا كان وقت الخروج بعد وقت نهاية الدوام الرسمي
         if (status === 'present' && check_out && settings.official_end_time) {
           const [outH, outM] = check_out.split(':').map(Number);
           const [endH, endM] = settings.official_end_time.split(':').map(Number);
@@ -1045,13 +1047,61 @@ async function startServer() {
             const extraMinutes = outMinutes - endMinutes;
             const extraHours = extraMinutes / 60;
             
-            // Calculate Bonus
+            // حساب قيمة العمل الإضافي
             if (worker && worker.salary) {
               const hourlyRate = calculateHourlyRate(worker.salary);
               const rateMultiplier = parseFloat(settings.overtime_rate) || 1.0;
               overtimeAmount = hourlyRate * extraHours * rateMultiplier;
               
               finalNotes += ` | عمل إضافي: ${Math.floor(extraHours)}س ${extraMinutes % 60}د`;
+            }
+          }
+        }
+
+        // 4. حساب خصم التأخير (Late Arrival Calculation)
+        let lateArrivalAmount = 0;
+        let lateArrivalDesc = `خصم تأخير - ${date}`;
+
+        if (status === 'present' && check_in && settings.official_start_time) {
+          const [inH, inM] = check_in.split(':').map(Number);
+          const [startH, startM] = settings.official_start_time.split(':').map(Number);
+          
+          const inMinutes = inH * 60 + inM;
+          const startMinutes = startH * 60 + startM;
+
+          if (inMinutes > startMinutes) {
+            const lateMinutes = inMinutes - startMinutes;
+            
+            if (worker && worker.salary) {
+                // Calculate hourly rate based on actual work hours
+                const [endH, endM] = (settings.official_end_time || "17:00").split(':').map(Number);
+                const endMinutes = endH * 60 + endM;
+                
+                let breakDurationMinutes = 0;
+                if (settings.has_break === '1' && settings.break_start_time && settings.break_end_time) {
+                    const [bStartH, bStartM] = settings.break_start_time.split(':').map(Number);
+                    const [bEndH, bEndM] = settings.break_end_time.split(':').map(Number);
+                    breakDurationMinutes = (bEndH * 60 + bEndM) - (bStartH * 60 + bStartM);
+                    if (breakDurationMinutes < 0) breakDurationMinutes = 0;
+                }
+
+                const totalWorkMinutes = (endMinutes - startMinutes) - breakDurationMinutes;
+                
+                if (totalWorkMinutes > 0) {
+                    const dailyWage = worker.salary / 30;
+                    const workHours = totalWorkMinutes / 60;
+                    const hourlyRate = dailyWage / workHours;
+                    
+                    const lateHours = lateMinutes / 60;
+                    lateArrivalAmount = Number((lateHours * hourlyRate).toFixed(2));
+                    
+                    const h = Math.floor(lateMinutes / 60);
+                    const m = lateMinutes % 60;
+                    const durationStr = h > 0 ? `${h}س ${m}د` : `${m}د`;
+                    
+                    lateArrivalDesc += ` (${durationStr})`;
+                    finalNotes += ` | تأخير: ${durationStr}`;
+                }
             }
           }
         }
@@ -1069,10 +1119,10 @@ async function startServer() {
           `).run(worker_id, date, status, check_in || null, check_out || null, finalNotes);
         }
 
-        // 2. Add Overtime Transaction if applicable
+        // 2. إضافة معاملة العمل الإضافي (Add Overtime Transaction)
         if (overtimeAmount > 0) {
           const desc = `عمل إضافي - ${date}`;
-          // Check if already exists to avoid duplicates on re-save
+          // التحقق من عدم وجود تكرار للمعاملة
           const existingTrans = db.prepare("SELECT id FROM worker_transactions WHERE worker_id = ? AND date = ? AND type = 'bonus' AND description LIKE 'عمل إضافي%'").get(worker_id, date) as any;
           
           if (existingTrans) {
@@ -1085,7 +1135,8 @@ async function startServer() {
           }
         }
 
-        // 3. Handle Early Departure Deduction
+        // 3. معالجة خصم الخروج المبكر (Early Departure Deduction)
+        // يتم الخصم إذا خرج الموظف قبل نهاية الدوام الرسمي، مع مراعاة وقت الاستراحة إذا كان مفعلاً
         let earlyDepartureAmount = 0;
         let earlyDepartureDesc = `خصم خروج مبكر - ${date}`;
 
@@ -1098,7 +1149,7 @@ async function startServer() {
           const endMinutes = endH * 60 + endM;
           const startMinutes = startH * 60 + startM;
 
-          // Calculate Break Duration
+          // حساب مدة الاستراحة (Break Duration)
           let breakDurationMinutes = 0;
           if (settings.has_break === '1' && settings.break_start_time && settings.break_end_time) {
               const [bStartH, bStartM] = settings.break_start_time.split(':').map(Number);
@@ -1107,15 +1158,15 @@ async function startServer() {
               if (breakDurationMinutes < 0) breakDurationMinutes = 0;
           }
 
-          // Calculate Total Work Minutes (Official)
+          // حساب إجمالي دقائق العمل الرسمية (بعد خصم الاستراحة)
           const totalWorkMinutes = (endMinutes - startMinutes) - breakDurationMinutes;
 
           if (outMinutes < endMinutes && totalWorkMinutes > 0) {
             const earlyMinutes = endMinutes - outMinutes;
             
-            // Calculate Hourly Rate
-            // Daily Wage = Salary / 30
-            // Hourly Rate = Daily Wage / (Total Work Minutes / 60)
+            // حساب قيمة الخصم بناءً على الراتب وساعات العمل الفعلية
+            // الراتب اليومي = الراتب الشهري / 30
+            // سعر الساعة = الراتب اليومي / (دقائق العمل اليومية / 60)
             if (worker && worker.salary) {
                 const dailyWage = worker.salary / 30;
                 const workHours = totalWorkMinutes / 60;
@@ -1124,7 +1175,7 @@ async function startServer() {
                 const earlyHours = earlyMinutes / 60;
                 earlyDepartureAmount = Number((earlyHours * hourlyRate).toFixed(2));
                 
-                // Add duration to description
+                // إضافة المدة للوصف
                 const h = Math.floor(earlyMinutes / 60);
                 const m = earlyMinutes % 60;
                 const durationStr = h > 0 ? `${h}س ${m}د` : `${m}د`;
@@ -1133,7 +1184,7 @@ async function startServer() {
           }
         }
 
-        // Update/Insert/Delete Early Departure Transaction
+        // تحديث أو إضافة أو حذف معاملة الخصم للخروج المبكر
         const existingEarlyTrans = db.prepare("SELECT id FROM worker_transactions WHERE worker_id = ? AND date = ? AND type = 'deduction' AND description LIKE 'خصم خروج مبكر%'").get(worker_id, date) as any;
 
         if (earlyDepartureAmount > 0) {
@@ -1146,13 +1197,32 @@ async function startServer() {
                 `).run(worker_id, earlyDepartureAmount, date, earlyDepartureDesc);
             }
         } else {
-            // If no early departure (or fixed), remove existing transaction
+            // إذا لم يعد هناك خروج مبكر (تم تعديل الوقت)، يتم حذف المعاملة السابقة
             if (existingEarlyTrans) {
                 db.prepare("DELETE FROM worker_transactions WHERE id = ?").run(existingEarlyTrans.id);
             }
         }
 
-        // Handle Account Statement (Transactions) for Absence
+        // تحديث أو إضافة أو حذف معاملة الخصم للتأخير
+        const existingLateTrans = db.prepare("SELECT id FROM worker_transactions WHERE worker_id = ? AND date = ? AND type = 'deduction' AND description LIKE 'خصم تأخير%'").get(worker_id, date) as any;
+
+        if (lateArrivalAmount > 0) {
+            if (existingLateTrans) {
+                db.prepare("UPDATE worker_transactions SET amount = ?, description = ? WHERE id = ?").run(lateArrivalAmount, lateArrivalDesc, existingLateTrans.id);
+            } else {
+                db.prepare(`
+                    INSERT INTO worker_transactions (worker_id, type, amount, date, description)
+                    VALUES (?, 'deduction', ?, ?, ?)
+                `).run(worker_id, lateArrivalAmount, date, lateArrivalDesc);
+            }
+        } else {
+            // إذا لم يعد هناك تأخير (تم تعديل الوقت)، يتم حذف المعاملة السابقة
+            if (existingLateTrans) {
+                db.prepare("DELETE FROM worker_transactions WHERE id = ?").run(existingLateTrans.id);
+            }
+        }
+
+        // معالجة خصم الغياب (Absence Deduction)
         const salary = worker?.salary || 0;
         const deductionAmount = salary > 0 ? Number((salary / 30).toFixed(2)) : 0;
         const description = `غياب - ${date}`;
@@ -1229,39 +1299,51 @@ async function startServer() {
         let durationStr = "مغادرة: ";
         if (hours > 0) durationStr += `${hours} ساعة `;
         if (mins > 0) durationStr += `${mins} دقيقة`;
+
+        // Calculate Deduction Amount for Note
+        const worker = db.prepare("SELECT salary FROM workers WHERE id = ?").get(worker_id) as any;
+        let deductionAmount = 0;
+        let costStr = "";
+
+        if (worker && worker.salary && durationHours > 0) {
+          const hourlyRate = calculateHourlyRate(worker.salary);
+          deductionAmount = hourlyRate * durationHours;
+          costStr = ` (قيمة الوقت: ${deductionAmount.toFixed(2)})`;
+        }
+        
+        // Combine for Attendance Note
+        // Format: "Departure: 2 hours (Cost: 50) - User Note"
+        const noteContent = `${durationStr}${costStr}${notes ? ` - ${notes}` : ''}`;
         
         // Update attendance notes
         const existingAttendance = db.prepare("SELECT id, notes FROM attendance WHERE worker_id = ? AND date = ?").get(worker_id, date) as any;
         
         if (existingAttendance) {
+          // Avoid duplicating if already exists (simple check)
           const newNotes = existingAttendance.notes 
-            ? `${existingAttendance.notes} | ${durationStr}`
-            : durationStr;
+            ? `${existingAttendance.notes} | ${noteContent}`
+            : noteContent;
           
           db.prepare("UPDATE attendance SET notes = ? WHERE id = ?").run(newNotes, existingAttendance.id);
         } else {
-          // Create attendance record if it doesn't exist, default to present? 
-          // Or just create it with the note.
           db.prepare(`
             INSERT INTO attendance (worker_id, date, status, notes)
             VALUES (?, ?, 'present', ?)
-          `).run(worker_id, date, durationStr);
+          `).run(worker_id, date, noteContent);
         }
-      }
 
-      // Calculate Deduction
-      const worker = db.prepare("SELECT salary FROM workers WHERE id = ?").get(worker_id) as any;
-      if (worker && worker.salary && durationHours > 0) {
-        const hourlyRate = calculateHourlyRate(worker.salary);
-        const deductionAmount = hourlyRate * durationHours;
-        
-        const desc = `خصم مغادرة - ${date} (${type === 'work' ? 'مهمة عمل' : 'خروج مبكر'})`;
-        
-        // Only deduct if NOT 'work' type? Usually work missions are paid. 
-        // User said "deduct automatically based on departure hours". 
-        // Assuming 'work' mission is NOT deducted, but 'early' or others are.
-        // But user request was general. Let's assume 'early' is deducted. 'work' is NOT.
-        if (type !== 'work') {
+        // Add Deduction Transaction
+        // Only deduct if NOT 'work' type (assuming 'work' is paid mission)
+        if (type !== 'work' && deductionAmount > 0) {
+           const desc = `خصم مغادرة - ${date} (${type === 'early' ? 'خروج مبكر' : type}) - ${durationStr} ${notes ? `- ${notes}` : ''}`;
+           
+           // Check for existing similar transaction to avoid duplicates?
+           // For now, just insert. Or maybe check if we are editing? 
+           // This endpoint is POST (create). PUT is separate?
+           // The code shows app.post. If editing, it might be a different endpoint or handled here?
+           // The frontend calls POST for new, PUT for edit.
+           // This block is inside POST.
+           
            db.prepare(`
             INSERT INTO worker_transactions (worker_id, type, amount, date, description)
             VALUES (?, 'deduction', ?, ?, ?)

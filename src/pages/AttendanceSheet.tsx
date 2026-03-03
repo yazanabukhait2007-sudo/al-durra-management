@@ -342,7 +342,7 @@ export default function AttendanceSheet({ isSubComponent = false }: { isSubCompo
                                 </td>
                                 <td className="border border-[#e5e7eb] px-1 py-1">{(record?.status === 'present' && record?.check_in) || '-'}</td>
                                 <td className="border border-[#e5e7eb] px-1 py-1">{(record?.status === 'present' && record?.check_out) || '-'}</td>
-                                <td className="border border-[#e5e7eb] px-1 py-1 text-[7px] truncate max-w-[40px]">{record?.notes || '-'}</td>
+                                <td className="border border-[#e5e7eb] px-1 py-1 text-[7px] break-words max-w-[60px]">{record?.notes || '-'}</td>
                               </tr>
                             );
                           })}
@@ -380,7 +380,7 @@ export default function AttendanceSheet({ isSubComponent = false }: { isSubCompo
                                 </td>
                                 <td className="border border-[#e5e7eb] px-1 py-1">{(record?.status === 'present' && record?.check_in) || '-'}</td>
                                 <td className="border border-[#e5e7eb] px-1 py-1">{(record?.status === 'present' && record?.check_out) || '-'}</td>
-                                <td className="border border-[#e5e7eb] px-1 py-1 text-[7px] truncate max-w-[40px]">{record?.notes || '-'}</td>
+                                <td className="border border-[#e5e7eb] px-1 py-1 text-[7px] break-words max-w-[60px]">{record?.notes || '-'}</td>
                               </tr>
                             );
                           })}
@@ -452,7 +452,7 @@ export default function AttendanceSheet({ isSubComponent = false }: { isSubCompo
                           </td>
                           <td className="px-4 py-3 font-mono text-gray-600 dark:text-gray-400">{(record?.status === 'present' && record?.check_in) || '-'}</td>
                           <td className="px-4 py-3 font-mono text-gray-600 dark:text-gray-400">{(record?.status === 'present' && record?.check_out) || '-'}</td>
-                          <td className="px-4 py-3 text-gray-500 dark:text-gray-500 truncate max-w-[150px]" title={record?.notes}>
+                          <td className="px-4 py-3 text-gray-500 dark:text-gray-500 text-xs break-words max-w-[200px]" title={record?.notes}>
                             {record?.notes || '-'}
                           </td>
                         </tr>

@@ -16,6 +16,7 @@ export default function Tasks() {
   const [newTaskName, setNewTaskName] = useState("");
   const [newTargetQuantity, setNewTargetQuantity] = useState("");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [editModal, setEditModal] = useState<{isOpen: boolean, task: Task | null}>({
     isOpen: false,
@@ -49,7 +50,12 @@ export default function Tasks() {
 
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTaskName.trim() || !newTargetQuantity) return;
+    
+    if (!newTaskName.trim() || !newTargetQuantity) {
+      setError("all");
+      showToast("الرجاء تعبئة جميع الحقول المطلوبة", "error");
+      return;
+    }
 
     try {
       const res = await fetchWithAuth("/api/tasks", {
@@ -63,6 +69,7 @@ export default function Tasks() {
       if (res.ok) {
         setNewTaskName("");
         setNewTargetQuantity("");
+        setError("");
         fetchTasks();
         showToast("تم إضافة المهمة بنجاح", "success");
       } else {
@@ -140,27 +147,49 @@ export default function Tasks() {
       {canAdd && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-8">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">إضافة مهمة جديدة</h2>
-          <form onSubmit={addTask} className="flex flex-col md:flex-row gap-4">
-            <input
-              type="text"
-              value={newTaskName}
-              onChange={(e) => setNewTaskName(e.target.value)}
-              placeholder="اسم المهمة (مثال: بحث بلور 1375 مل)..."
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
-              required
-            />
-            <input
-              type="number"
-              value={newTargetQuantity}
-              onChange={(e) => setNewTargetQuantity(e.target.value)}
-              placeholder="الهدف..."
-              className="w-full md:w-48 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
-              required
-              min="1"
-            />
+          <form onSubmit={addTask} className="flex flex-col md:flex-row gap-4 items-start">
+            <div className="flex-1 w-full">
+              <input
+                type="text"
+                value={newTaskName}
+                onChange={(e) => {
+                  setNewTaskName(e.target.value);
+                  if (error) setError("");
+                }}
+                placeholder="اسم المهمة (مثال: بحث بلور 1375 مل)..."
+                className={`w-full px-4 py-2 border rounded-lg outline-none transition-all ${
+                  error && !newTaskName.trim() 
+                    ? "border-red-500 focus:ring-2 focus:ring-red-200" 
+                    : "border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-durra-green focus:border-durra-green"
+                }`}
+              />
+              {error && !newTaskName.trim() && (
+                <span className="text-xs text-red-500 mt-1 mr-1 block">مطلوب</span>
+              )}
+            </div>
+            <div className="w-full md:w-48">
+              <input
+                type="number"
+                value={newTargetQuantity}
+                onChange={(e) => {
+                  setNewTargetQuantity(e.target.value);
+                  if (error) setError("");
+                }}
+                placeholder="الهدف..."
+                className={`w-full px-4 py-2 border rounded-lg outline-none transition-all ${
+                  error && !newTargetQuantity 
+                    ? "border-red-500 focus:ring-2 focus:ring-red-200" 
+                    : "border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-durra-green focus:border-durra-green"
+                }`}
+                min="1"
+              />
+              {error && !newTargetQuantity && (
+                <span className="text-xs text-red-500 mt-1 mr-1 block">مطلوب</span>
+              )}
+            </div>
             <button
               type="submit"
-              className="bg-durra-green text-white px-8 py-2 rounded-xl hover:bg-durra-green-light flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 font-bold"
+              className="bg-durra-green text-white px-8 py-2 rounded-xl hover:bg-durra-green-light flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 font-bold h-[42px]"
             >
               <Plus className="w-5 h-5" />
               إضافة
