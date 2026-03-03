@@ -4,6 +4,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { motion } from "motion/react";
 import Logo from "../components/Logo";
+import ValidationTooltip from "../components/ValidationTooltip";
 import { User, Lock, LogIn, Eye, EyeOff } from "lucide-react";
 
 import { useTheme } from "../context/ThemeContext";
@@ -13,6 +14,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
+  const [showErrors, setShowErrors] = useState(false);
   const { user, login } = useAuth();
   const { showToast } = useToast();
   const { setTheme } = useTheme();
@@ -27,7 +29,12 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowErrors(true);
     setError("");
+
+    if (!email || !password) {
+      return;
+    }
 
     try {
       const res = await fetch("/api/auth/login", {
@@ -78,7 +85,7 @@ export default function Login() {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="bg-white/90 backdrop-blur-xl py-10 px-6 shadow-2xl border-2 border-durra-green/20 rounded-3xl sm:px-12">
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form className="space-y-6" onSubmit={handleSubmit} noValidate>
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-2">
                 <div className="w-1.5 h-1.5 bg-red-600 rounded-full"></div>
@@ -91,7 +98,7 @@ export default function Login() {
                 البريد الإلكتروني
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none z-10">
                   <User className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
@@ -99,9 +106,14 @@ export default function Login() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pr-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none"
+                  className={`block w-full pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none ${
+                    showErrors && !email ? "border-red-500" : "border-gray-200"
+                  }`}
                   placeholder="أدخل البريد الإلكتروني..."
                 />
+                {showErrors && !email && (
+                  <ValidationTooltip />
+                )}
               </div>
             </div>
 
@@ -110,7 +122,7 @@ export default function Login() {
                 كلمة المرور
               </label>
               <div className="relative">
-                <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
+                <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none z-10">
                   <Lock className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
@@ -118,13 +130,15 @@ export default function Login() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="block w-full pr-12 pl-12 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none"
+                  className={`block w-full pr-12 pl-12 py-3 border rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none ${
+                    showErrors && !password ? "border-red-500" : "border-gray-200"
+                  }`}
                   placeholder="أدخل كلمة المرور..."
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none"
+                  className="absolute inset-y-0 left-0 pl-4 flex items-center text-gray-400 hover:text-gray-600 focus:outline-none z-10"
                 >
                   {showPassword ? (
                     <EyeOff className="h-5 w-5" />
@@ -132,6 +146,9 @@ export default function Login() {
                     <Eye className="h-5 w-5" />
                   )}
                 </button>
+                {showErrors && !password && (
+                  <ValidationTooltip />
+                )}
               </div>
             </div>
 

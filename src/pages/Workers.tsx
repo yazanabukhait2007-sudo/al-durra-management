@@ -4,6 +4,7 @@ import { Plus, Trash2, Search, Edit, X, Eye } from "lucide-react";
 
 import Logo from "../components/Logo";
 import ConfirmModal from "../components/ConfirmModal";
+import ValidationTooltip from "../components/ValidationTooltip";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 
@@ -19,6 +20,7 @@ export default function Workers() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [viewOnly, setViewOnly] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
   
   const [formData, setFormData] = useState<Partial<Worker>>({
     name: "",
@@ -67,6 +69,7 @@ export default function Workers() {
 
   const handleOpenModal = (worker?: Worker, isViewOnly: boolean = false) => {
     setViewOnly(isViewOnly);
+    setShowErrors(false);
     if (worker) {
       setEditingWorker(worker);
       setFormData({ ...worker });
@@ -94,10 +97,13 @@ export default function Workers() {
     setIsModalOpen(false);
     setEditingWorker(null);
     setViewOnly(false);
+    setShowErrors(false);
   };
 
   const handleSaveWorker = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowErrors(true);
+    
     if (!formData.name?.trim()) return;
 
     try {
@@ -277,19 +283,30 @@ export default function Workers() {
             </div>
             
             <div className="p-6 overflow-y-auto">
-              <form id="worker-form" onSubmit={handleSaveWorker} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <form id="worker-form" onSubmit={handleSaveWorker} className="grid grid-cols-1 md:grid-cols-2 gap-6" noValidate>
                 
                 {/* Name */}
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الاسم الرباعي *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name || ""}
-                    disabled={viewOnly}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={formData.name || ""}
+                      disabled={viewOnly}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${
+                        viewOnly ? 'opacity-70 cursor-not-allowed' : ''
+                      } ${
+                        showErrors && !formData.name?.trim() 
+                          ? "border-red-500" 
+                          : "border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                      }`}
+                    />
+                    {showErrors && !formData.name?.trim() && (
+                      <ValidationTooltip />
+                    )}
+                  </div>
                 </div>
 
                 {/* Phones */}

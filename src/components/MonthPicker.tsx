@@ -65,7 +65,7 @@ export default function MonthPicker({ value, onChange }: MonthPickerProps) {
       </div>
 
       {isOpen && (
-        <div className="absolute top-full mt-2 right-0 z-50 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-4 w-[280px] animate-in fade-in zoom-in-95 duration-200">
+        <div className="absolute top-full mt-2 -right-24 z-50 bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 p-4 w-[280px] animate-in fade-in zoom-in-95 duration-200">
           {/* Header */}
           <div className="flex items-center justify-between mb-4 px-2">
             <button onClick={prevYear} type="button" className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors">

@@ -7,6 +7,7 @@ import { Plus, Trash2, Save, ArrowRight, Calendar, User, CheckSquare } from "luc
 import Logo from "../components/Logo";
 import DatePicker from "../components/DatePicker";
 import CustomSelect from "../components/CustomSelect";
+import ValidationTooltip from "../components/ValidationTooltip";
 import { useToast } from "../context/ToastContext";
 
 import { fetchWithAuth } from "../utils/api";
@@ -21,6 +22,7 @@ export default function AddEvaluation() {
   const [entries, setEntries] = useState<{ task_id: string; quantity: string }[]>([
     { task_id: "", quantity: "" },
   ]);
+  const [showErrors, setShowErrors] = useState(false);
 
   useEffect(() => {
     fetchWorkers();
@@ -53,9 +55,16 @@ export default function AddEvaluation() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setShowErrors(true);
 
-    if (!selectedWorker || !date) {
-      showToast("الرجاء اختيار العامل والتاريخ", "error");
+    const hasEmptyFields = entries.some((e) => !e.task_id || !e.quantity);
+
+    if (!selectedWorker || !date || hasEmptyFields) {
+      if (!selectedWorker || !date) {
+        showToast("الرجاء اختيار العامل والتاريخ", "error");
+      } else if (hasEmptyFields) {
+        showToast("الرجاء تعبئة جميع الحقول المطلوبة", "error");
+      }
       return;
     }
 
@@ -108,23 +117,29 @@ export default function AddEvaluation() {
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-8">
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-8" noValidate>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 العامل
               </label>
-              <CustomSelect
-                value={selectedWorker}
-                onChange={setSelectedWorker}
-                options={workers.map((w) => ({
-                  value: w.id.toString(),
-                  label: w.name,
-                  subLabel: w.current_job || undefined,
-                }))}
-                placeholder="-- اختر العامل --"
-                icon={<User className="w-5 h-5 text-durra-green" />}
-              />
+              <div className="relative">
+                <CustomSelect
+                  value={selectedWorker}
+                  onChange={setSelectedWorker}
+                  options={workers.map((w) => ({
+                    value: w.id.toString(),
+                    label: w.name,
+                    subLabel: w.current_job || undefined,
+                  }))}
+                  placeholder="-- اختر العامل --"
+                  icon={<User className="w-5 h-5 text-durra-green" />}
+                  className={showErrors && !selectedWorker ? "border-red-500" : ""}
+                />
+                {showErrors && !selectedWorker && (
+                   <ValidationTooltip />
+                )}
+              </div>
             </div>
 
             <div>
@@ -158,21 +173,26 @@ export default function AddEvaluation() {
                     <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
                       المهمة
                     </label>
-                    <CustomSelect
-                      value={entry.task_id}
-                      onChange={(val) => handleEntryChange(index, "task_id", val)}
-                      options={tasks.map((t) => ({
-                        value: t.id.toString(),
-                        label: t.name,
-                        subLabel: `الهدف: ${t.target_quantity}`,
-                      }))}
-                      placeholder="-- اختر المهمة --"
-                      icon={<CheckSquare className="w-5 h-5 text-durra-green" />}
-                      className="w-full"
-                    />
+                    <div className="relative">
+                      <CustomSelect
+                        value={entry.task_id}
+                        onChange={(val) => handleEntryChange(index, "task_id", val)}
+                        options={tasks.map((t) => ({
+                          value: t.id.toString(),
+                          label: t.name,
+                          subLabel: `الهدف: ${t.target_quantity}`,
+                        }))}
+                        placeholder="-- اختر المهمة --"
+                        icon={<CheckSquare className="w-5 h-5 text-durra-green" />}
+                        className={`w-full ${showErrors && !entry.task_id ? "border-red-500" : ""}`}
+                      />
+                      {showErrors && !entry.task_id && (
+                        <ValidationTooltip />
+                      )}
+                    </div>
                   </div>
 
-                  <div className="w-full sm:w-48">
+                  <div className="relative w-full sm:w-48">
                     <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
                       الكمية المنجزة
                     </label>
@@ -181,10 +201,19 @@ export default function AddEvaluation() {
                       value={entry.quantity}
                       onChange={(e) => handleEntryChange(index, "quantity", e.target.value)}
                       placeholder="الكمية..."
-                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-white dark:bg-gray-800 dark:text-white"
+                      className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-white dark:bg-gray-800 dark:text-white ${
+                        showErrors && !entry.quantity 
+                          ? "border-red-500" 
+                          : "border-gray-300 dark:border-gray-600"
+                      }`}
                       required
                       min="0"
                     />
+                    
+                    {/* Custom Validation Tooltip */}
+                    {showErrors && !entry.quantity && (
+                      <ValidationTooltip />
+                    )}
                   </div>
 
                   {entries.length > 1 && (
