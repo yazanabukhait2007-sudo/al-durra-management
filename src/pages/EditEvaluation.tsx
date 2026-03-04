@@ -18,7 +18,7 @@ export default function EditEvaluation() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedWorker, setSelectedWorker] = useState("");
   const [date, setDate] = useState("");
-  const [entries, setEntries] = useState<{ task_id: string; quantity: string }[]>([]);
+  const [entries, setEntries] = useState<{ task_id: string; quantity: string; target_quantity: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,10 +44,18 @@ export default function EditEvaluation() {
         const data = await res.json();
         setSelectedWorker(data.worker_id.toString());
         setDate(data.date);
-        setEntries(data.entries.map((e: any) => ({
-          task_id: e.task_id.toString(),
-          quantity: e.quantity.toString()
-        })));
+        setEntries(data.entries.map((e: any) => {
+          let target = e.target_quantity;
+          // If no stored target, try to calculate from score
+          if (!target && e.score > 0) {
+             target = Math.round(e.quantity / (e.score / 100));
+          }
+          return {
+            task_id: e.task_id.toString(),
+            quantity: e.quantity.toString(),
+            target_quantity: (target || e.task_default_target || "").toString()
+          };
+        }));
       } else {
         alert("التقييم غير موجود");
         navigate("/evaluations");
@@ -60,16 +68,25 @@ export default function EditEvaluation() {
   };
 
   const handleAddEntry = () => {
-    setEntries([...entries, { task_id: "", quantity: "" }]);
+    setEntries([...entries, { task_id: "", quantity: "", target_quantity: "" }]);
   };
 
   const handleRemoveEntry = (index: number) => {
     setEntries(entries.filter((_, i) => i !== index));
   };
 
-  const handleEntryChange = (index: number, field: "task_id" | "quantity", value: string) => {
+  const handleEntryChange = (index: number, field: "task_id" | "quantity" | "target_quantity", value: string) => {
     const newEntries = [...entries];
     newEntries[index][field] = value;
+    
+    // If task changes, update target_quantity with default
+    if (field === "task_id") {
+      const task = tasks.find(t => t.id.toString() === value);
+      if (task) {
+        newEntries[index].target_quantity = task.target_quantity.toString();
+      }
+    }
+
     setEntries(newEntries);
   };
 
@@ -95,6 +112,7 @@ export default function EditEvaluation() {
           entries: validEntries.map((e) => ({
             task_id: parseInt(e.task_id, 10),
             quantity: parseInt(e.quantity, 10),
+            target_quantity: e.target_quantity ? parseInt(e.target_quantity, 10) : undefined
           })),
         }),
       });
@@ -202,6 +220,20 @@ export default function EditEvaluation() {
                       placeholder="-- اختر المهمة --"
                       icon={<CheckSquare className="w-5 h-5 text-durra-green" />}
                       className="w-full"
+                    />
+                  </div>
+
+                  <div className="w-full sm:w-48">
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                      الهدف المطلوب
+                    </label>
+                    <input
+                      type="number"
+                      value={entry.target_quantity}
+                      onChange={(e) => handleEntryChange(index, "target_quantity", e.target.value)}
+                      placeholder="الهدف..."
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-white dark:bg-gray-800 dark:text-white"
+                      min="1"
                     />
                   </div>
 

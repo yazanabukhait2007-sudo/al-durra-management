@@ -68,7 +68,9 @@ db.exec(`
     password TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'approved',
     role TEXT NOT NULL DEFAULT 'user',
-    permissions TEXT NOT NULL DEFAULT '[]'
+    permissions TEXT NOT NULL DEFAULT '[]',
+    worker_id INTEGER,
+    FOREIGN KEY (worker_id) REFERENCES workers(id)
   );
 
   -- المعاملات المالية: سجل الرواتب، المكافآت، والخصومات
@@ -147,6 +149,9 @@ try { db.exec("ALTER TABLE workers ADD COLUMN age INTEGER"); } catch (e) {}
 try { db.exec("ALTER TABLE workers ADD COLUMN notes TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE workers ADD COLUMN social_security_amount REAL DEFAULT 0"); } catch (e) {}
 try { db.exec("ALTER TABLE tasks ADD COLUMN is_active INTEGER DEFAULT 1"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN worker_id INTEGER"); } catch (e) {}
+try { db.exec("ALTER TABLE users ADD COLUMN last_password_update TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE task_entries ADD COLUMN target_quantity INTEGER"); } catch (e) {}
 
 // Helper to get settings
 function getSettings() {
@@ -352,7 +357,18 @@ async function startServer() {
     
     try {
       const hashed = bcrypt.hashSync(password, 10);
-      db.prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)").run(username, email, hashed);
+      // Default permissions for new users: view dashboard, workers, tasks, evaluations, reports, attendance, account statements
+      const defaultPermissions = JSON.stringify([
+        "view_dashboard",
+        "view_workers",
+        "view_tasks",
+        "view_evaluations",
+        "view_reports",
+        "view_attendance",
+        "view_account_statements"
+      ]);
+      
+      db.prepare("INSERT INTO users (username, email, password, permissions) VALUES (?, ?, ?, ?)").run(username, email, hashed, defaultPermissions);
       
       const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username) as any;
       const token = jwt.sign(
@@ -392,7 +408,7 @@ async function startServer() {
       }
 
       const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role, permissions: user.permissions },
+        { id: user.id, username: user.username, role: user.role, permissions: user.permissions, worker_id: user.worker_id },
         JWT_SECRET,
         { expiresIn: "24h" }
       );
@@ -408,7 +424,8 @@ async function startServer() {
           email: user.email,
           role: user.role,
           status: user.status,
-          permissions: JSON.parse(user.permissions || '[]')
+          permissions: JSON.parse(user.permissions || '[]'),
+          worker_id: user.worker_id
         }
       });
     } catch (err) {
@@ -466,7 +483,8 @@ async function startServer() {
       }
 
       const hashed = bcrypt.hashSync(newPassword, 10);
-      db.prepare("UPDATE users SET password = ? WHERE id = ?").run(hashed, req.user.id);
+      const now = new Date().toISOString();
+      db.prepare("UPDATE users SET password = ?, last_password_update = ? WHERE id = ?").run(hashed, now, req.user.id);
       logAction(req, "UPDATE_PASSWORD", "user", req.user.id, "Updated password");
       res.json({ success: true, message: "Password updated successfully" });
     } catch (err) {
@@ -514,7 +532,7 @@ async function startServer() {
 
   // --- مسارات العمال (Workers) ---
   // جلب كافة العمال
-  app.get("/api/workers", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+  app.get("/api/workers", authenticateToken, requirePermission("view_workers"), (req, res) => {
     const workers = db.prepare("SELECT * FROM workers").all();
     res.json(workers);
   });
@@ -618,6 +636,15 @@ async function startServer() {
       // Delete transactions
       db.prepare("DELETE FROM worker_transactions WHERE worker_id = ?").run(id);
 
+      // Delete attendance records
+      db.prepare("DELETE FROM attendance WHERE worker_id = ?").run(id);
+
+      // Delete departures records
+      db.prepare("DELETE FROM departures WHERE worker_id = ?").run(id);
+
+      // Delete user account associated with worker
+      db.prepare("DELETE FROM users WHERE worker_id = ?").run(id);
+
       // Delete worker
       db.prepare("DELETE FROM workers WHERE id = ?").run(id);
     });
@@ -702,7 +729,7 @@ async function startServer() {
   });
 
   // Tasks
-  app.get("/api/tasks", authenticateToken, requirePermission("manage_tasks"), (req, res) => {
+  app.get("/api/tasks", authenticateToken, requirePermission("view_tasks"), (req, res) => {
     const { active_only } = req.query;
     let query = "SELECT * FROM tasks";
     if (active_only === 'true') {
@@ -715,7 +742,22 @@ async function startServer() {
   app.post("/api/tasks", authenticateToken, requirePermission("manage_tasks"), (req, res) => {
     const { name, target_quantity } = req.body;
     if (!name || !target_quantity) return res.status(400).json({ error: "Name and target_quantity are required" });
+    
     try {
+      // Check if task exists (including inactive ones)
+      const existingTask = db.prepare("SELECT * FROM tasks WHERE name = ?").get(name) as any;
+      
+      if (existingTask) {
+        if (existingTask.is_active === 0) {
+          // Reactivate task
+          db.prepare("UPDATE tasks SET is_active = 1, target_quantity = ? WHERE id = ?").run(target_quantity, existingTask.id);
+          logAction(req, "REACTIVATE_TASK", "task", existingTask.id, `Reactivated task: ${name}`);
+          return res.json({ id: existingTask.id, name, target_quantity });
+        } else {
+          return res.status(400).json({ error: "Task already exists" });
+        }
+      }
+
       const info = db.prepare("INSERT INTO tasks (name, target_quantity) VALUES (?, ?)").run(name, target_quantity);
       logAction(req, "CREATE_TASK", "task", Number(info.lastInsertRowid), `Created task: ${name}`);
       res.json({ id: info.lastInsertRowid, name, target_quantity });
@@ -781,25 +823,34 @@ async function startServer() {
     const processedEntries = [];
 
     for (const entry of entries) {
-      const task = taskMap.get(entry.task_id);
+      // Find the task object from the map using the task_id
+      const task = taskMap.get(parseInt(entry.task_id));
       if (!task) return res.status(400).json({ error: `Task ID ${entry.task_id} not found` });
       
-      const score = (entry.quantity / task.target_quantity) * 100;
+      // Use provided target_quantity or fallback to task default
+      const targetQuantity = entry.target_quantity ? parseInt(entry.target_quantity) : task.target_quantity;
+      
+      const score = (entry.quantity / targetQuantity) * 100;
       totalScoreSum += score;
-      processedEntries.push({ ...entry, score });
+      processedEntries.push({ 
+        task_id: parseInt(entry.task_id), 
+        quantity: parseInt(entry.quantity), 
+        score, 
+        target_quantity: targetQuantity 
+      });
     }
 
     // Sum of scores for the day based on tasks performed
     const dailyTotalScore = totalScoreSum;
 
     const insertEval = db.prepare("INSERT INTO daily_evaluations (worker_id, date, total_score) VALUES (?, ?, ?)");
-    const insertEntry = db.prepare("INSERT INTO task_entries (evaluation_id, task_id, quantity, score) VALUES (?, ?, ?, ?)");
+    const insertEntry = db.prepare("INSERT INTO task_entries (evaluation_id, task_id, quantity, score, target_quantity) VALUES (?, ?, ?, ?, ?)");
 
     const transaction = db.transaction(() => {
       const evalInfo = insertEval.run(worker_id, date, dailyTotalScore);
       const evalId = evalInfo.lastInsertRowid;
       for (const entry of processedEntries) {
-        insertEntry.run(evalId, entry.task_id, entry.quantity, entry.score);
+        insertEntry.run(evalId, entry.task_id, entry.quantity, entry.score, entry.target_quantity);
       }
       return evalId;
     });
@@ -815,7 +866,7 @@ async function startServer() {
 
   // --- مسارات التقييمات (Evaluations) ---
   // جلب التقييمات لشهر محدد
-  app.get("/api/evaluations", authenticateToken, requirePermission("manage_evaluations"), (req, res) => {
+  app.get("/api/evaluations", authenticateToken, requirePermission("view_evaluations"), (req, res) => {
     const { month } = req.query; // format: YYYY-MM
     let query = `
       SELECT e.*, w.name as worker_name 
@@ -835,7 +886,7 @@ async function startServer() {
     res.json(evaluations);
   });
 
-  app.get("/api/workers/:id/evaluations", authenticateToken, requirePermission("view_work_logs"), (req, res) => {
+  app.get("/api/workers/:id/evaluations", authenticateToken, requirePermission("view_evaluations"), (req, res) => {
     const { id } = req.params;
     const { month } = req.query; // format: YYYY-MM
     
@@ -854,7 +905,7 @@ async function startServer() {
     // For each evaluation, get the entries
     const result = evaluations.map(ev => {
       const entries = db.prepare(`
-        SELECT te.*, t.name as task_name, t.target_quantity
+        SELECT te.*, t.name as task_name, t.target_quantity as task_default_target
         FROM task_entries te
         JOIN tasks t ON te.task_id = t.id
         WHERE te.evaluation_id = ?
@@ -877,7 +928,7 @@ async function startServer() {
     if (!evaluation) return res.status(404).json({ error: "Not found" });
 
     const entries = db.prepare(`
-      SELECT te.*, t.name as task_name, t.target_quantity
+      SELECT te.*, t.name as task_name, t.target_quantity as task_default_target
       FROM task_entries te
       JOIN tasks t ON te.task_id = t.id
       WHERE te.evaluation_id = ?
@@ -918,12 +969,20 @@ async function startServer() {
     const processedEntries = [];
 
     for (const entry of entries) {
-      const task = taskMap.get(entry.task_id);
+      const task = taskMap.get(parseInt(entry.task_id));
       if (!task) return res.status(400).json({ error: `Task ID ${entry.task_id} not found` });
       
-      const score = (entry.quantity / task.target_quantity) * 100;
+      // Use provided target_quantity or fallback to task default
+      const targetQuantity = entry.target_quantity ? parseInt(entry.target_quantity) : task.target_quantity;
+      
+      const score = (entry.quantity / targetQuantity) * 100;
       totalScoreSum += score;
-      processedEntries.push({ ...entry, score });
+      processedEntries.push({ 
+        task_id: parseInt(entry.task_id), 
+        quantity: parseInt(entry.quantity), 
+        score, 
+        target_quantity: targetQuantity 
+      });
     }
 
     // Sum of scores for the day based on tasks performed
@@ -933,9 +992,9 @@ async function startServer() {
       db.prepare("UPDATE daily_evaluations SET total_score = ? WHERE id = ?").run(dailyTotalScore, id);
       db.prepare("DELETE FROM task_entries WHERE evaluation_id = ?").run(id);
       
-      const insertEntry = db.prepare("INSERT INTO task_entries (evaluation_id, task_id, quantity, score) VALUES (?, ?, ?, ?)");
+      const insertEntry = db.prepare("INSERT INTO task_entries (evaluation_id, task_id, quantity, score, target_quantity) VALUES (?, ?, ?, ?, ?)");
       for (const entry of processedEntries) {
-        insertEntry.run(id, entry.task_id, entry.quantity, entry.score);
+        insertEntry.run(id, entry.task_id, entry.quantity, entry.score, entry.target_quantity);
       }
     });
 
@@ -1390,6 +1449,161 @@ async function startServer() {
     } catch (error) {
       console.error("Failed to update departure:", error);
       res.status(500).json({ error: "Internal server error" });
+    }
+  });
+
+  // --- Worker Specific Routes ---
+
+  // Get worker account details (Admin only)
+  app.get("/api/admin/worker-account/:workerId", authenticateToken, requirePermission("manage_users"), (req, res) => {
+    const { workerId } = req.params;
+    try {
+      const user = db.prepare("SELECT id, username, email, last_password_update FROM users WHERE worker_id = ?").get(workerId);
+      if (!user) return res.status(404).json({ error: "No account found for this worker" });
+      res.json(user);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch worker account" });
+    }
+  });
+
+  // Update worker account (Admin only)
+  app.put("/api/admin/worker-account/:workerId", authenticateToken, requirePermission("manage_users"), (req, res) => {
+    const { workerId } = req.params;
+    const { username, email, password } = req.body;
+
+    if (!username || !email) {
+      return res.status(400).json({ error: "Username and email are required" });
+    }
+
+    try {
+      const user = db.prepare("SELECT id FROM users WHERE worker_id = ?").get(workerId) as any;
+      if (!user) return res.status(404).json({ error: "No account found for this worker" });
+
+      // Check uniqueness for username and email (excluding current user)
+      const existingEmail = db.prepare("SELECT id FROM users WHERE email = ? AND id != ?").get(email, user.id);
+      if (existingEmail) return res.status(400).json({ error: "Email already in use" });
+
+      const existingUsername = db.prepare("SELECT id FROM users WHERE username = ? AND id != ?").get(username, user.id);
+      if (existingUsername) return res.status(400).json({ error: "Username already in use" });
+
+      if (password) {
+        const hashed = bcrypt.hashSync(password, 10);
+        const now = new Date().toISOString();
+        db.prepare("UPDATE users SET username = ?, email = ?, password = ?, last_password_update = ? WHERE id = ?").run(username, email, hashed, now, user.id);
+      } else {
+        db.prepare("UPDATE users SET username = ?, email = ? WHERE id = ?").run(username, email, user.id);
+      }
+
+      logAction(req, "UPDATE_WORKER_ACCOUNT", "user", user.id, `Updated account for worker ${workerId}`);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Failed to update worker account:", err);
+      res.status(500).json({ error: "Failed to update worker account" });
+    }
+  });
+
+  // Create account for worker (Admin only)
+  app.post("/api/admin/create-worker-account", authenticateToken, requirePermission("manage_users"), (req, res) => {
+    const { worker_id, username, password, email } = req.body;
+    
+    if (!worker_id || !username || !password || !email) {
+      return res.status(400).json({ error: "Worker ID, username, password, and email are required" });
+    }
+
+    try {
+      const worker = db.prepare("SELECT * FROM workers WHERE id = ?").get(worker_id);
+      if (!worker) return res.status(404).json({ error: "Worker not found" });
+
+      const existingUser = db.prepare("SELECT id FROM users WHERE worker_id = ?").get(worker_id);
+      if (existingUser) return res.status(400).json({ error: "User account already exists for this worker" });
+
+      const existingEmail = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+      if (existingEmail) return res.status(400).json({ error: "Email already in use" });
+
+      const existingUsername = db.prepare("SELECT id FROM users WHERE username = ?").get(username);
+      if (existingUsername) return res.status(400).json({ error: "Username already in use" });
+
+      const hashed = bcrypt.hashSync(password, 10);
+
+      db.prepare(`
+        INSERT INTO users (username, email, password, role, permissions, worker_id, status)
+        VALUES (?, ?, ?, 'worker', '[]', ?, 'approved')
+      `).run(username, email, hashed, worker_id);
+
+      logAction(req, "CREATE_WORKER_ACCOUNT", "user", worker_id, `Created account for worker ${worker_id}`);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Failed to create worker account:", err);
+      res.status(500).json({ error: "Failed to create worker account" });
+    }
+  });
+
+  // Get worker's own stats
+  app.get("/api/worker/my-stats", authenticateToken, (req: any, res) => {
+    const workerId = req.user.worker_id;
+    if (!workerId) return res.status(403).json({ error: "Not a worker account" });
+
+    const { month } = req.query; // YYYY-MM
+    const targetMonth = month || new Date().toISOString().slice(0, 7);
+
+    try {
+      const worker = db.prepare("SELECT * FROM workers WHERE id = ?").get(workerId) as any;
+      
+      // Transactions
+      const transactions = db.prepare(`
+        SELECT * FROM worker_transactions 
+        WHERE worker_id = ? AND date LIKE ? 
+        ORDER BY date DESC
+      `).all(workerId, `${targetMonth}%`);
+
+      // Attendance
+      const attendance = db.prepare(`
+        SELECT * FROM attendance 
+        WHERE worker_id = ? AND date LIKE ?
+        ORDER BY date DESC
+      `).all(workerId, `${targetMonth}%`);
+
+      // Departures
+      const departures = db.prepare(`
+        SELECT * FROM departures 
+        WHERE worker_id = ? AND date LIKE ?
+        ORDER BY date DESC
+      `).all(workerId, `${targetMonth}%`);
+
+      // Calculate totals
+      let totalSalary = worker.salary || 0;
+      let totalDeductions = 0;
+      let totalBonuses = 0;
+      let totalPayments = 0;
+
+      transactions.forEach((t: any) => {
+        if (t.type === 'deduction') totalDeductions += t.amount;
+        if (t.type === 'bonus') totalBonuses += t.amount;
+        if (t.type === 'payment') totalPayments += t.amount;
+      });
+
+      const netSalary = totalSalary + totalBonuses - totalDeductions - totalPayments;
+
+      res.json({
+        worker,
+        stats: {
+          month: targetMonth,
+          baseSalary: totalSalary,
+          totalDeductions,
+          totalBonuses,
+          totalPayments,
+          netSalary,
+          attendanceCount: attendance.filter((a: any) => a.status === 'present').length,
+          absenceCount: attendance.filter((a: any) => a.status === 'absent').length,
+        },
+        transactions,
+        attendance,
+        departures
+      });
+
+    } catch (err) {
+      console.error("Failed to fetch worker stats:", err);
+      res.status(500).json({ error: "Failed to fetch stats" });
     }
   });
 

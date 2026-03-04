@@ -19,8 +19,8 @@ export default function AddEvaluation() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [selectedWorker, setSelectedWorker] = useState("");
   const [date, setDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
-  const [entries, setEntries] = useState<{ task_id: string; quantity: string }[]>([
-    { task_id: "", quantity: "" },
+  const [entries, setEntries] = useState<{ task_id: string; quantity: string; target_quantity: string }[]>([
+    { task_id: "", quantity: "", target_quantity: "" },
   ]);
   const [showErrors, setShowErrors] = useState(false);
 
@@ -40,16 +40,25 @@ export default function AddEvaluation() {
   };
 
   const handleAddEntry = () => {
-    setEntries([...entries, { task_id: "", quantity: "" }]);
+    setEntries([...entries, { task_id: "", quantity: "", target_quantity: "" }]);
   };
 
   const handleRemoveEntry = (index: number) => {
     setEntries(entries.filter((_, i) => i !== index));
   };
 
-  const handleEntryChange = (index: number, field: "task_id" | "quantity", value: string) => {
+  const handleEntryChange = (index: number, field: "task_id" | "quantity" | "target_quantity", value: string) => {
     const newEntries = [...entries];
     newEntries[index][field] = value;
+    
+    // If task changes, update target_quantity with default
+    if (field === "task_id") {
+      const task = tasks.find(t => t.id.toString() === value);
+      if (task) {
+        newEntries[index].target_quantity = task.target_quantity.toString();
+      }
+    }
+    
     setEntries(newEntries);
   };
 
@@ -84,6 +93,7 @@ export default function AddEvaluation() {
           entries: validEntries.map((e) => ({
             task_id: parseInt(e.task_id, 10),
             quantity: parseInt(e.quantity, 10),
+            target_quantity: e.target_quantity ? parseInt(e.target_quantity, 10) : undefined
           })),
         }),
       });
@@ -190,6 +200,20 @@ export default function AddEvaluation() {
                         <ValidationTooltip />
                       )}
                     </div>
+                  </div>
+
+                  <div className="relative w-full sm:w-48">
+                    <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                      الهدف المطلوب
+                    </label>
+                    <input
+                      type="number"
+                      value={entry.target_quantity}
+                      onChange={(e) => handleEntryChange(index, "target_quantity", e.target.value)}
+                      placeholder="الهدف..."
+                      className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none bg-white dark:bg-gray-800 dark:text-white"
+                      min="1"
+                    />
                   </div>
 
                   <div className="relative w-full sm:w-48">

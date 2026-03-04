@@ -3,7 +3,7 @@
  */
 
 import React from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
@@ -24,9 +24,13 @@ import AdminUsers from "./pages/AdminUsers";
 import AuditLogs from "./pages/AuditLogs";
 import Attendance from "./pages/Attendance";
 
+import WorkerDashboard from "./pages/WorkerDashboard";
+
 // مكون حماية المسارات: يتحقق من تسجيل الدخول والصلاحيات قبل عرض الصفحة
-function ProtectedRoute({ children, permission }: { children: React.ReactNode, permission?: string }) {
+function ProtectedRoute({ children, permission, role }: { children: React.ReactNode, permission?: string, role?: string }) {
   const { user, loading, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center text-durra-green font-bold">جاري التحميل...</div>;
@@ -34,6 +38,20 @@ function ProtectedRoute({ children, permission }: { children: React.ReactNode, p
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Redirect worker to dashboard if trying to access other pages
+  if (user.role === 'worker' && role !== 'worker') {
+    // Allow access to settings page
+    if (location.pathname === '/settings') {
+      return <>{children}</>;
+    }
+    return <Navigate to="/worker-dashboard" replace />;
+  }
+
+  // Redirect non-worker trying to access worker dashboard
+  if (role === 'worker' && user.role !== 'worker') {
+    return <Navigate to="/" replace />;
   }
 
   if (permission && user.role !== "admin" && !user.permissions.includes(permission)) {
@@ -53,7 +71,7 @@ function ProtectedRoute({ children, permission }: { children: React.ReactNode, p
             <button 
               onClick={() => {
                 logout();
-                window.location.href = "/login";
+                navigate("/login");
               }}
               className="w-full bg-durra-green text-white px-6 py-3 rounded-xl hover:bg-durra-green-light transition-all font-bold shadow-md active:scale-95"
             >
@@ -71,6 +89,8 @@ function ProtectedRoute({ children, permission }: { children: React.ReactNode, p
 // إدارة المسارات مع تأثيرات الانتقال الحركية
 function AnimatedRoutes() {
   const location = useLocation();
+  const { user } = useAuth(); // Need user here for conditional routing
+
   return (
     <AnimatePresence mode="wait">
       <motion.div key={location.pathname} className="w-full h-full">
@@ -78,7 +98,14 @@ function AnimatedRoutes() {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           
+          <Route path="/worker-dashboard" element={
+            <ProtectedRoute role="worker">
+              <Layout><WorkerDashboard /></Layout>
+            </ProtectedRoute>
+          } />
+
           <Route path="/" element={
+            user?.role === 'worker' ? <Navigate to="/worker-dashboard" replace /> :
             <ProtectedRoute permission="view_dashboard">
               <Layout><Dashboard /></Layout>
             </ProtectedRoute>

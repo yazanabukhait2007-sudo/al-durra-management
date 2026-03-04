@@ -140,7 +140,9 @@ export default function WorkLogModal({ isOpen, onClose, type, data }: WorkLogMod
                             </div>
                             <div>
                               <p className="font-medium text-gray-900 dark:text-white">{entry.task_name}</p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">الهدف: {entry.target_quantity}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                                الهدف: {entry.target_quantity || (entry.score > 0 ? Math.round(entry.quantity / (entry.score / 100)) : "-")}
+                              </p>
                             </div>
                           </div>
                           <div className="text-left">

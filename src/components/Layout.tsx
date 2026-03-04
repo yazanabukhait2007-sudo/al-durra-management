@@ -16,8 +16,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     navigate("/login");
   };
 
-  const navigation = [
+  const navigation: { name: string; href: string; icon: any; permission?: string; role?: string }[] = [
     { name: "الرئيسية", href: "/", icon: LayoutDashboard, permission: "view_dashboard" },
+    { name: "لوحة التحكم", href: "/worker-dashboard", icon: LayoutDashboard, role: "worker" },
     { name: "العمال", href: "/workers", icon: Users, permission: "view_workers" },
     { name: "الأعمال (المهام)", href: "/tasks", icon: ClipboardList, permission: "view_tasks" },
     { name: "التقييم اليومي", href: "/evaluations", icon: CalendarCheck, permission: "view_evaluations" },
@@ -29,6 +30,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   ];
 
   const filteredNavigation = navigation.filter((item) => {
+    if (user?.role === "worker") {
+      return item.role === "worker";
+    }
+    if (item.role === "worker") return false;
+
     if (!item.permission) return true;
     if (user?.role === "admin") return true;
     return user?.permissions.includes(item.permission);

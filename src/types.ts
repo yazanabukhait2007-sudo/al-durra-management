@@ -2,9 +2,10 @@ export interface User {
   id: number;
   username?: string;
   email: string;
-  role: "admin" | "user";
+  role: "admin" | "user" | "worker";
   permissions: string[];
   status: "pending" | "approved" | "rejected";
+  worker_id?: number;
 }
 
 export interface Worker {
