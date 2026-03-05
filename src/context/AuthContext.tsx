@@ -26,7 +26,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           throw new Error("Invalid token");
         })
         .then((data) => {
-          setUser(data);
+          // Ensure permissions is an array
+          const userData = {
+            ...data,
+            permissions: Array.isArray(data.permissions) ? data.permissions : JSON.parse(data.permissions || '[]')
+          };
+          setUser(userData);
         })
         .catch(() => {
           logout();

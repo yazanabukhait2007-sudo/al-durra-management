@@ -2,6 +2,7 @@ export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   try {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
     const fullUrl = `${baseUrl}${url}`;
+    console.log("DEBUG: Fetching URL:", fullUrl);
 
     const token = localStorage.getItem("token");
     const headers = {

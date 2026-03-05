@@ -34,7 +34,7 @@ export default function WorkerDashboard() {
   if (loading) return <div className="p-8 text-center text-gray-500">جاري التحميل...</div>;
   if (!data) return <div className="p-8 text-center text-gray-500">لا توجد بيانات</div>;
 
-  const { worker, stats, transactions, attendance, departures } = data;
+  const { worker, stats, transactions, attendance, absences } = data;
 
   return (
     <div className="p-6 space-y-6" dir="rtl">
@@ -90,10 +90,10 @@ export default function WorkerDashboard() {
             <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg text-yellow-600">
               <Clock className="w-5 h-5" />
             </div>
-            <h3 className="font-semibold text-gray-700 dark:text-gray-300">المغادرات</h3>
+            <h3 className="font-semibold text-gray-700 dark:text-gray-300">أيام الغياب</h3>
           </div>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            {departures.length} مغادرة
+            {absences.length} يوم
           </p>
         </div>
       </div>

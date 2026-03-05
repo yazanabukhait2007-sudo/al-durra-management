@@ -5,9 +5,15 @@ import path from "path";
 import { fileURLToPath } from "url";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import fs from "fs";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const logStream = fs.createWriteStream(path.join(__dirname, 'server.log'), {flags: 'a'});
+const logger = (message: string) => {
+  logStream.write(`${new Date().toISOString()} - ${message}\n`);
+};
 
 const db = new Database("database.sqlite");
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-durra-app";
@@ -18,7 +24,7 @@ db.exec(`
   -- جدول العمال: يحتوي على كافة البيانات الشخصية والمهنية للموظفين
   CREATE TABLE IF NOT EXISTS workers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
     phone TEXT,
     alt_phone TEXT,
     address TEXT,
@@ -231,7 +237,7 @@ if (!adminExists) {
     hashedAdmin, 
     "approved", 
     "admin", 
-    JSON.stringify(["manage_workers", "manage_tasks", "manage_evaluations", "view_reports", "manage_users", "view_audit_logs"])
+    JSON.stringify(["manage_workers", "manage_tasks", "add_evaluation", "edit_evaluation", "delete_evaluation", "view_evaluations", "view_reports", "manage_users", "view_audit_logs"])
   );
 } else {
   // Force update password and email to a stronger one to avoid browser warnings
@@ -290,12 +296,20 @@ try {
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
+  logger("DEBUG: authenticateToken called for: " + req.url);
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  if (!token) return res.status(401).json({ error: "Unauthorized" });
+  if (!token) {
+    logger("DEBUG: No token found");
+    return res.status(401).json({ error: "Unauthorized" });
+  }
 
   jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
-    if (err) return res.status(403).json({ error: "Forbidden" });
+    if (err) {
+      logger("DEBUG: Token verification failed: " + err);
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    logger("DEBUG: Token verified for user: " + user.id);
     req.user = user;
     next();
   });
@@ -303,23 +317,69 @@ const authenticateToken = (req: any, res: any, next: any) => {
 
 const requirePermission = (permission: string) => {
   return (req: any, res: any, next: any) => {
-    if (req.user.role === 'admin') return next();
+    logger(`DEBUG: requirePermission called for ${permission}, user: ${req.user?.id}, role: ${req.user?.role}`);
+    if (!req.user) {
+      logger("DEBUG: req.user is undefined in requirePermission");
+      return res.status(403).json({ error: "Access denied: No user" });
+    }
+    if (req.user.role === 'admin') {
+      logger("DEBUG: User is admin, granting permission");
+      return next();
+    }
     let perms = [];
-    try {
-      perms = JSON.parse(req.user.permissions || '[]');
-    } catch (e) {}
-    if (perms.includes(permission)) return next();
+    logger("DEBUG: req.user.permissions raw: " + JSON.stringify(req.user.permissions));
+    if (req.user.permissions) {
+      if (Array.isArray(req.user.permissions)) {
+        perms = req.user.permissions;
+      } else if (typeof req.user.permissions === 'string') {
+        try {
+          perms = JSON.parse(req.user.permissions);
+        } catch (e) {
+          logger("DEBUG: Error parsing permissions: " + e);
+        }
+      }
+    }
+    logger("DEBUG: perms array: " + JSON.stringify(perms) + " required: " + permission);
+    if (perms.includes(permission)) {
+      logger("DEBUG: Permission granted");
+      return next();
+    }
+    logger(`DEBUG: Permission denied. User ${req.user.id} does not have ${permission}`);
     res.status(403).json({ error: "Access denied" });
   };
 };
 
 async function startServer() {
   const app = express();
+  app.use((req, res, next) => {
+    logger(`DEBUG: ${req.method} ${req.url}`);
+    next();
+  });
   const PORT = 3000;
 
   app.use(express.json());
 
   // --- API Routes ---
+
+  app.get("/api/debug/permissions", authenticateToken, (req, res) => {
+    const user = db.prepare("SELECT permissions FROM users WHERE id = ?").get(req.user.id) as any;
+    res.json({
+      tokenPermissions: req.user.permissions,
+      dbPermissions: JSON.parse(user.permissions || '[]')
+    });
+  });
+
+  app.get("/api/debug/permissions/:username", (req, res) => {
+    const { username } = req.params;
+    const user = db.prepare("SELECT permissions FROM users WHERE username = ?").get(username) as any;
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    res.json({
+      username: username,
+      dbPermissions: JSON.parse(user.permissions || '[]')
+    });
+  });
 
   // Settings Routes
   app.get("/api/settings", authenticateToken, (req, res) => {
@@ -357,16 +417,8 @@ async function startServer() {
     
     try {
       const hashed = bcrypt.hashSync(password, 10);
-      // Default permissions for new users: view dashboard, workers, tasks, evaluations, reports, attendance, account statements
-      const defaultPermissions = JSON.stringify([
-        "view_dashboard",
-        "view_workers",
-        "view_tasks",
-        "view_evaluations",
-        "view_reports",
-        "view_attendance",
-        "view_account_statements"
-      ]);
+      // New users start with no permissions
+      const defaultPermissions = JSON.stringify([]);
       
       db.prepare("INSERT INTO users (username, email, password, permissions) VALUES (?, ?, ?, ?)").run(username, email, hashed, defaultPermissions);
       
@@ -408,7 +460,13 @@ async function startServer() {
       }
 
       const token = jwt.sign(
-        { id: user.id, username: user.username, role: user.role, permissions: user.permissions, worker_id: user.worker_id },
+        { 
+          id: user.id, 
+          username: user.username, 
+          role: user.role, 
+          permissions: JSON.parse(user.permissions || '[]'), 
+          worker_id: user.worker_id 
+        },
         JWT_SECRET,
         { expiresIn: "24h" }
       );
@@ -435,7 +493,7 @@ async function startServer() {
   });
 
   app.get("/api/auth/me", authenticateToken, (req: any, res) => {
-    const user = db.prepare("SELECT id, username, email, role, permissions, status FROM users WHERE id = ?").get(req.user.id) as any;
+    const user = db.prepare("SELECT id, username, email, role, permissions, status, worker_id FROM users WHERE id = ?").get(req.user.id) as any;
     if (!user) return res.status(404).json({ error: "User not found" });
     
     res.json({
@@ -444,7 +502,8 @@ async function startServer() {
       email: user.email,
       role: user.role,
       permissions: JSON.parse(user.permissions || '[]'),
-      status: user.status
+      status: user.status,
+      worker_id: user.worker_id
     });
   });
 
@@ -510,11 +569,13 @@ async function startServer() {
   app.put("/api/admin/users/:id/permissions", authenticateToken, requirePermission("manage_users"), (req, res) => {
     const { id } = req.params;
     const { permissions } = req.body; // Array of strings
+    console.log("DEBUG: Updating permissions for user:", id, "permissions:", permissions);
     try {
       db.prepare("UPDATE users SET permissions = ? WHERE id = ?").run(JSON.stringify(permissions || []), id);
-      logAction(req, "UPDATE_PERMISSIONS", "user", parseInt(id), `Updated permissions: ${permissions.join(", ")}`);
+      logAction(req, "UPDATE_PERMISSIONS", "user", parseInt(id), `Updated permissions: ${permissions ? permissions.join(", ") : "none"}`);
       res.json({ success: true });
     } catch (err) {
+      console.error("DEBUG: Error updating permissions:", err);
       res.status(500).json({ error: "Failed to update permissions" });
     }
   });
@@ -538,7 +599,7 @@ async function startServer() {
   });
 
   // إضافة عامل جديد
-  app.post("/api/workers", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+  app.post("/api/workers", authenticateToken, requirePermission("add_worker"), (req, res) => {
     const { name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, social_security_amount, notes } = req.body;
     if (!name) return res.status(400).json({ error: "Name is required" });
     try {
@@ -561,12 +622,14 @@ async function startServer() {
       );
       logAction(req, "CREATE_WORKER", "worker", Number(info.lastInsertRowid), `Created worker: ${name}`);
       res.json({ id: info.lastInsertRowid, name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, social_security_amount, notes });
-    } catch (err) {
-      res.status(400).json({ error: "Worker already exists or invalid data" });
+    } catch (err: any) {
+      console.error("Failed to create worker:", err);
+      logger(`ERROR: Failed to create worker: ${err.message}`);
+      res.status(400).json({ error: err.message || "Worker already exists or invalid data" });
     }
   });
 
-  app.put("/api/workers/:id", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+  app.put("/api/workers/:id", authenticateToken, requirePermission("edit_worker"), (req, res) => {
     const { id } = req.params;
     const { name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, social_security_amount, notes } = req.body;
     if (!name) return res.status(400).json({ error: "Name is required" });
@@ -613,8 +676,10 @@ async function startServer() {
       );
       logAction(req, "UPDATE_WORKER", "worker", parseInt(id), `Updated worker: ${name}`);
       res.json({ success: true });
-    } catch (err) {
-      res.status(400).json({ error: "Failed to update worker" });
+    } catch (err: any) {
+      console.error("Failed to update worker:", err);
+      logger(`ERROR: Failed to update worker: ${err.message}`);
+      res.status(400).json({ error: err.message || "Failed to update worker" });
     }
   });
 
@@ -739,7 +804,7 @@ async function startServer() {
     res.json(tasks);
   });
 
-  app.post("/api/tasks", authenticateToken, requirePermission("manage_tasks"), (req, res) => {
+  app.post("/api/tasks", authenticateToken, requirePermission("add_task"), (req, res) => {
     const { name, target_quantity } = req.body;
     if (!name || !target_quantity) return res.status(400).json({ error: "Name and target_quantity are required" });
     
@@ -761,12 +826,14 @@ async function startServer() {
       const info = db.prepare("INSERT INTO tasks (name, target_quantity) VALUES (?, ?)").run(name, target_quantity);
       logAction(req, "CREATE_TASK", "task", Number(info.lastInsertRowid), `Created task: ${name}`);
       res.json({ id: info.lastInsertRowid, name, target_quantity });
-    } catch (err) {
-      res.status(400).json({ error: "Task already exists or invalid data" });
+    } catch (err: any) {
+      console.error("Failed to create task:", err);
+      logger(`ERROR: Failed to create task: ${err.message}`);
+      res.status(400).json({ error: err.message || "Task already exists or invalid data" });
     }
   });
 
-  app.put("/api/tasks/:id", authenticateToken, requirePermission("manage_tasks"), (req, res) => {
+  app.put("/api/tasks/:id", authenticateToken, requirePermission("edit_task"), (req, res) => {
     const { id } = req.params;
     const { name, target_quantity } = req.body;
     if (!name || !target_quantity) return res.status(400).json({ error: "Name and target_quantity are required" });
@@ -774,8 +841,10 @@ async function startServer() {
       db.prepare("UPDATE tasks SET name = ?, target_quantity = ? WHERE id = ?").run(name, target_quantity, id);
       logAction(req, "UPDATE_TASK", "task", parseInt(id), `Updated task: ${name}`);
       res.json({ success: true });
-    } catch (err) {
-      res.status(400).json({ error: "Failed to update task or name already exists" });
+    } catch (err: any) {
+      console.error("Failed to update task:", err);
+      logger(`ERROR: Failed to update task: ${err.message}`);
+      res.status(400).json({ error: err.message || "Failed to update task or name already exists" });
     }
   });
 
@@ -804,9 +873,11 @@ async function startServer() {
   });
 
   // Evaluations
-  app.post("/api/evaluations", authenticateToken, requirePermission("manage_evaluations"), (req, res) => {
+  app.post("/api/evaluations", authenticateToken, requirePermission("add_evaluation"), (req, res) => {
+    logger("DEBUG: POST /api/evaluations body: " + JSON.stringify(req.body));
     const { worker_id, date, entries } = req.body;
     if (!worker_id || !date || !entries || !entries.length) {
+      logger("DEBUG: Missing fields in POST /api/evaluations");
       return res.status(400).json({ error: "Missing required fields" });
     }
 
@@ -860,6 +931,7 @@ async function startServer() {
       logAction(req, "CREATE_EVALUATION", "evaluation", Number(newEvalId), `Created evaluation for worker ${worker_id} on ${date}`);
       res.json({ success: true, evaluation_id: newEvalId, daily_score: dailyTotalScore });
     } catch (err) {
+      logger("DEBUG: Error in POST /api/evaluations: " + err);
       res.status(500).json({ error: "Failed to save evaluation" });
     }
   });
@@ -916,7 +988,7 @@ async function startServer() {
     res.json(result);
   });
 
-  app.get("/api/evaluations/:id", authenticateToken, requirePermission("manage_evaluations"), (req, res) => {
+  app.get("/api/evaluations/:id", authenticateToken, requirePermission("view_evaluations"), (req, res) => {
     const { id } = req.params;
     const evaluation = db.prepare(`
       SELECT e.*, w.name as worker_name 
@@ -937,7 +1009,7 @@ async function startServer() {
     res.json({ ...evaluation, entries });
   });
 
-  app.delete("/api/evaluations/:id", authenticateToken, requirePermission("manage_evaluations"), (req, res) => {
+  app.delete("/api/evaluations/:id", authenticateToken, requirePermission("delete_evaluation"), (req, res) => {
     const { id } = req.params;
     
     const transaction = db.transaction(() => {
@@ -954,7 +1026,7 @@ async function startServer() {
     }
   });
 
-  app.put("/api/evaluations/:id", authenticateToken, requirePermission("manage_evaluations"), (req, res) => {
+  app.put("/api/evaluations/:id", authenticateToken, requirePermission("edit_evaluation"), (req, res) => {
     const { id } = req.params;
     const { entries } = req.body;
     
@@ -1563,12 +1635,8 @@ async function startServer() {
         ORDER BY date DESC
       `).all(workerId, `${targetMonth}%`);
 
-      // Departures
-      const departures = db.prepare(`
-        SELECT * FROM departures 
-        WHERE worker_id = ? AND date LIKE ?
-        ORDER BY date DESC
-      `).all(workerId, `${targetMonth}%`);
+      // Absences
+      const absences = attendance.filter((a: any) => a.status === 'absent');
 
       // Calculate totals
       let totalSalary = worker.salary || 0;
@@ -1594,11 +1662,11 @@ async function startServer() {
           totalPayments,
           netSalary,
           attendanceCount: attendance.filter((a: any) => a.status === 'present').length,
-          absenceCount: attendance.filter((a: any) => a.status === 'absent').length,
+          absenceCount: absences.length,
         },
         transactions,
         attendance,
-        departures
+        absences
       });
 
     } catch (err) {
