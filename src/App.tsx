@@ -23,7 +23,13 @@ import Settings from "./pages/Settings";
 import AdminUsers from "./pages/AdminUsers";
 import AuditLogs from "./pages/AuditLogs";
 import Attendance from "./pages/Attendance";
+import ProductionTomato from "./pages/ProductionTomato";
+import ProductionKetchup from "./pages/ProductionKetchup";
+import PackagingDepartment from "./pages/PackagingDepartment";
+import PalletTracking from "./pages/PalletTracking";
 
+import Laboratory from "./pages/Laboratory";
+import WarehousePage from "./pages/WarehousePage";
 import WorkerDashboard from "./pages/WorkerDashboard";
 
 // مكون حماية المسارات: يتحقق من تسجيل الدخول والصلاحيات قبل عرض الصفحة
@@ -158,6 +164,36 @@ function AnimatedRoutes() {
           <Route path="/admin/audit-logs" element={
             <ProtectedRoute permission="view_audit_logs">
               <Layout><AuditLogs /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/production/tomato" element={
+            <ProtectedRoute permission="add_worker">
+              <Layout><ProductionTomato /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/production/ketchup" element={
+            <ProtectedRoute permission="add_worker">
+              <Layout><ProductionKetchup /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/packaging" element={
+            <ProtectedRoute permission="view_tasks">
+              <Layout><PackagingDepartment /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/laboratory" element={
+            <ProtectedRoute permission="view_lab">
+              <Layout><Laboratory /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/warehouse" element={
+            <ProtectedRoute permission="view_warehouse">
+              <Layout><WarehousePage /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/pallet-tracking" element={
+            <ProtectedRoute permission="view_dashboard">
+              <Layout><PalletTracking /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/settings" element={

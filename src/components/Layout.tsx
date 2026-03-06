@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet, Menu, X, Settings, ChevronRight, ChevronLeft, Activity, Clock, FileText } from "lucide-react";
+import { Users, ClipboardList, CalendarCheck, BarChart3, LayoutDashboard, LogOut, ShieldAlert, Wallet, Menu, X, Settings, ChevronRight, ChevronLeft, Activity, Clock, FileText, Package, Truck, FlaskConical, Warehouse, Search } from "lucide-react";
 import Logo from "./Logo";
 import { useAuth } from "../context/AuthContext";
 
@@ -21,6 +21,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     { name: "لوحة التحكم", href: "/worker-dashboard", icon: LayoutDashboard, role: "worker" },
     { name: "العمال", href: "/workers", icon: Users, permission: "view_workers" },
     { name: "الأعمال (المهام)", href: "/tasks", icon: ClipboardList, permission: "view_tasks" },
+    { name: "قسم الإنتاج (بندورة)", href: "/production/tomato", icon: Package, permission: "add_worker" },
+    { name: "قسم الإنتاج (كاتشب)", href: "/production/ketchup", icon: Package, permission: "add_worker" },
+    { name: "قسم التغليف", href: "/packaging", icon: Truck, permission: "view_tasks" },
+    { name: "المختبر", href: "/laboratory", icon: FlaskConical, permission: "view_lab" },
+    { name: "المستودع", href: "/warehouse", icon: Warehouse, permission: "view_warehouse" },
+    { name: "تتبع الطبالي", href: "/pallet-tracking", icon: Search, permission: "view_dashboard" },
     { name: "التقييم اليومي", href: "/evaluations", icon: CalendarCheck, permission: "view_evaluations" },
     { name: "التقرير الشهري", href: "/reports", icon: BarChart3, permission: "view_reports" },
     { name: "الحضور والمغادرات", href: "/attendance", icon: Clock, permission: "view_attendance" },

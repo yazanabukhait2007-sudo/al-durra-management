@@ -139,6 +139,38 @@ db.exec(`
     value TEXT
   );
   
+  -- جدول الطبالي (الإنتاج): تسجيل الطبالي المنتجة
+  CREATE TABLE IF NOT EXISTS pallets (
+    id TEXT PRIMARY KEY, -- الكود الخاص بالطبلية
+    parent_pallet_id TEXT, -- الكود الخاص بالطبلية الأصلية (إذا كانت مشتقة)
+    type TEXT NOT NULL, -- نوع المنتج (بندورة، كاتشب، مايونيز، إلخ)
+    details TEXT,
+    status TEXT DEFAULT 'produced', -- 'produced', 'in_packaging', 'in_warehouse', 'quality_check'
+    quality_score REAL, -- نتيجة الجودة
+    measurements TEXT, -- المقاييس
+    certificate_data TEXT, -- بيانات شهادة الطبلية (JSON)
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (parent_pallet_id) REFERENCES pallets(id)
+  );
+
+  -- جدول المستودع: تتبع أماكن الطبالي
+  CREATE TABLE IF NOT EXISTS warehouse_stock (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pallet_id TEXT NOT NULL,
+    location TEXT NOT NULL, -- 'internal_production', 'internal_raw_materials', 'external'
+    added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pallet_id) REFERENCES pallets(id)
+  );
+
+  -- جدول طلبات المستودع
+  CREATE TABLE IF NOT EXISTS warehouse_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pallet_id TEXT NOT NULL,
+    status TEXT DEFAULT 'pending', -- 'pending', 'completed'
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pallet_id) REFERENCES pallets(id)
+  );
+  
   -- إدراج القيم الافتراضية للإعدادات إذا لم تكن موجودة
   INSERT OR IGNORE INTO app_settings (key, value) VALUES 
     ('official_start_time', '08:00'),
@@ -158,6 +190,7 @@ try { db.exec("ALTER TABLE tasks ADD COLUMN is_active INTEGER DEFAULT 1"); } cat
 try { db.exec("ALTER TABLE users ADD COLUMN worker_id INTEGER"); } catch (e) {}
 try { db.exec("ALTER TABLE users ADD COLUMN last_password_update TEXT"); } catch (e) {}
 try { db.exec("ALTER TABLE task_entries ADD COLUMN target_quantity INTEGER"); } catch (e) {}
+try { db.exec("ALTER TABLE pallets ADD COLUMN packaging_certificate_data TEXT"); } catch (e) {}
 
 // Helper to get settings
 function getSettings() {
@@ -267,6 +300,21 @@ const logAction = (req: any, action: string, entityType?: string, entityId?: num
   }
 };
 
+// MIGRATION: Add certificate_data column to pallets table if not exists
+try {
+  const tableInfo = db.prepare("PRAGMA table_info(pallets)").all() as any[];
+  const hasCertData = tableInfo.some(col => col.name === 'certificate_data');
+  if (!hasCertData) {
+    db.prepare("ALTER TABLE pallets ADD COLUMN certificate_data TEXT").run();
+  }
+  const hasPkgCertData = tableInfo.some(col => col.name === 'packaging_certificate_data');
+  if (!hasPkgCertData) {
+    db.prepare("ALTER TABLE pallets ADD COLUMN packaging_certificate_data TEXT").run();
+  }
+} catch (e) {
+  console.error("Migration failed:", e);
+}
+
 // MIGRATION: Recalculate all daily evaluation scores to be SUM instead of AVG
 try {
   const evals = db.prepare("SELECT id FROM daily_evaluations").all() as any[];
@@ -362,9 +410,9 @@ async function startServer() {
   // --- API Routes ---
 
   app.get("/api/debug/permissions", authenticateToken, (req, res) => {
-    const user = db.prepare("SELECT permissions FROM users WHERE id = ?").get(req.user.id) as any;
+    const user = db.prepare("SELECT permissions FROM users WHERE id = ?").get((req as any).user.id) as any;
     res.json({
-      tokenPermissions: req.user.permissions,
+      tokenPermissions: (req as any).user.permissions,
       dbPermissions: JSON.parse(user.permissions || '[]')
     });
   });
@@ -577,6 +625,253 @@ async function startServer() {
     } catch (err) {
       console.error("DEBUG: Error updating permissions:", err);
       res.status(500).json({ error: "Failed to update permissions" });
+    }
+  });
+
+  // Production & Warehouse
+  app.get("/api/production/pallets", authenticateToken, (req, res) => {
+    const { type } = req.query;
+    try {
+      let pallets;
+      if (!type || type === 'all') {
+        pallets = db.prepare("SELECT * FROM pallets ORDER BY created_at DESC").all();
+      } else {
+        pallets = db.prepare("SELECT * FROM pallets WHERE type = ? ORDER BY created_at DESC").all(type);
+      }
+      res.json(pallets);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch pallets" });
+    }
+  });
+
+  app.post("/api/production/pallets", authenticateToken, (req, res) => {
+    const { id, type, details, certificate_data } = req.body;
+    if (!id || !type) return res.status(400).json({ error: "ID and type are required" });
+    try {
+      db.prepare("INSERT INTO pallets (id, type, details, certificate_data) VALUES (?, ?, ?, ?)").run(id, type, details, JSON.stringify(certificate_data));
+      logAction(req, "ADD_PALLET", "pallet", 0, `Added pallet ${id} of type ${type}`);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || "Failed to add pallet" });
+    }
+  });
+
+  app.put("/api/production/pallets/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const { certificate_data, packaging_certificate_data, status } = req.body;
+
+    try {
+      const pallet = db.prepare("SELECT * FROM pallets WHERE id = ?").get(id) as any;
+      if (!pallet) return res.status(404).json({ error: "Pallet not found" });
+
+      // Check if quality officer has already signed
+      if (pallet.certificate_data) {
+        try {
+          const currentCertData = JSON.parse(pallet.certificate_data);
+          if (currentCertData?.signatures?.quality_officer?.signed) {
+             // Allow update only if we are not modifying certificate_data content (excluding signatures)
+             if (certificate_data) {
+                 const newCertData = certificate_data;
+                 // Create copies without signatures to compare content
+                 const { signatures: oldSigs, ...oldContent } = currentCertData;
+                 const { signatures: newSigs, ...newContent } = newCertData;
+                 
+                 if (JSON.stringify(oldContent) !== JSON.stringify(newContent)) {
+                     return res.status(403).json({ error: "Cannot edit certificate details after Quality Officer signature" });
+                 }
+             }
+             // Also prevent updating details if they are different
+             if (req.body.details && req.body.details !== pallet.details) {
+                 return res.status(403).json({ error: "Cannot edit pallet details after Quality Officer signature" });
+             }
+          }
+        } catch (e) {
+          // ignore parse error
+        }
+      }
+
+      if (certificate_data) {
+        db.prepare("UPDATE pallets SET certificate_data = ? WHERE id = ?").run(JSON.stringify(certificate_data), id);
+      }
+
+      if (packaging_certificate_data) {
+        db.prepare("UPDATE pallets SET packaging_certificate_data = ? WHERE id = ?").run(JSON.stringify(packaging_certificate_data), id);
+      }
+      
+      if (status) {
+        db.prepare("UPDATE pallets SET status = ? WHERE id = ?").run(status, id);
+      }
+
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/warehouse/transfer", authenticateToken, (req, res) => {
+    const { pallet_id, location } = req.body;
+    if (!pallet_id || !location) return res.status(400).json({ error: "Pallet ID and location are required" });
+    try {
+      db.prepare("UPDATE pallets SET status = 'in_warehouse' WHERE id = ?").run(pallet_id);
+      db.prepare("INSERT INTO warehouse_stock (pallet_id, location) VALUES (?, ?)").run(pallet_id, location);
+      logAction(req, "TRANSFER_PALLET", "pallet", 0, `Transferred pallet ${pallet_id} to ${location}`);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || "Failed to transfer pallet" });
+    }
+  });
+
+  // Warehouse Requests
+  app.get("/api/warehouse/requests", authenticateToken, (req, res) => {
+    try {
+      const requests = db.prepare(`
+        SELECT r.*, p.details as pallet_details, p.certificate_data, p.packaging_certificate_data 
+        FROM warehouse_requests r 
+        LEFT JOIN pallets p ON r.pallet_id = p.id 
+        ORDER BY r.created_at DESC
+      `).all();
+      res.json(requests);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch requests" });
+    }
+  });
+
+  app.get("/api/warehouse/stock", authenticateToken, (req, res) => {
+    try {
+      const stock = db.prepare(`
+        SELECT w.*, p.details, p.certificate_data, p.packaging_certificate_data 
+        FROM warehouse_stock w 
+        LEFT JOIN pallets p ON w.pallet_id = p.id 
+        ORDER BY w.added_at DESC
+      `).all();
+      res.json(stock);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch stock" });
+    }
+  });
+
+  app.post("/api/warehouse/requests", authenticateToken, (req, res) => {
+    const { pallet_id, status } = req.body;
+    if (!pallet_id) return res.status(400).json({ error: "Pallet ID is required" });
+    try {
+      db.prepare("INSERT INTO warehouse_requests (pallet_id, status) VALUES (?, ?)").run(pallet_id, status || 'pending');
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || "Failed to create request" });
+    }
+  });
+
+  app.put("/api/warehouse/requests/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    try {
+      db.prepare("UPDATE warehouse_requests SET status = ? WHERE id = ?").run(status, id);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(400).json({ error: err.message || "Failed to update request" });
+    }
+  });
+
+  // Packaging Department Routes
+  app.get("/api/packaging/incoming", authenticateToken, (req, res) => {
+    try {
+      // Only show pallets that have been signed by QC in Production (Tomato/Ketchup)
+      // and are still in 'produced' status
+      const pallets = db.prepare("SELECT * FROM pallets WHERE status = 'produced' ORDER BY created_at DESC").all();
+      
+      const readyPallets = pallets.filter((p: any) => {
+        try {
+          const cert = JSON.parse(p.certificate_data || '{}');
+          // Require both QC and Quality Officer signatures before sending to packaging
+          return cert?.signatures?.qc?.signed === true && cert?.signatures?.quality_officer?.signed === true;
+        } catch (e) {
+          return false;
+        }
+      });
+      
+      res.json(readyPallets);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch incoming pallets" });
+    }
+  });
+
+  app.get("/api/packaging/stock", authenticateToken, (req, res) => {
+    try {
+      const pallets = db.prepare("SELECT * FROM pallets WHERE status = 'in_packaging_stock' ORDER BY created_at DESC").all();
+      res.json(pallets);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch packaging stock" });
+    }
+  });
+
+  app.get("/api/packaging/processing", authenticateToken, (req, res) => {
+    try {
+      const pallets = db.prepare("SELECT * FROM pallets WHERE status IN ('packaging_in_progress', 'packaging_done', 'packaging_qc_approved') ORDER BY created_at DESC").all();
+      res.json(pallets);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch processing pallets" });
+    }
+  });
+
+  app.put("/api/packaging/receive/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare("UPDATE pallets SET status = 'in_packaging_stock' WHERE id = ?").run(id);
+      logAction(req, "RECEIVE_PALLET", "pallet", 0, `Received pallet ${id} in packaging stock`);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to receive pallet" });
+    }
+  });
+
+  app.put("/api/packaging/start/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare("UPDATE pallets SET status = 'packaging_in_progress' WHERE id = ?").run(id);
+      logAction(req, "START_PACKAGING", "pallet", 0, `Started packaging for pallet ${id}`);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to start packaging" });
+    }
+  });
+
+  app.put("/api/packaging/finish/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const { packaging_certificate_data } = req.body;
+    try {
+      db.prepare("UPDATE pallets SET status = 'packaging_done', packaging_certificate_data = ? WHERE id = ?").run(JSON.stringify(packaging_certificate_data), id);
+      logAction(req, "FINISH_PACKAGING", "pallet", 0, `Finished packaging for pallet ${id}`);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to finish packaging" });
+    }
+  });
+
+  app.put("/api/packaging/quality/:id", authenticateToken, requirePermission("edit_task"), (req, res) => {
+    const { id } = req.params;
+    const { packaging_certificate_data } = req.body;
+    try {
+      if (packaging_certificate_data) {
+         db.prepare("UPDATE pallets SET status = 'packaging_qc_approved', packaging_certificate_data = ? WHERE id = ?").run(JSON.stringify(packaging_certificate_data), id);
+      } else {
+         db.prepare("UPDATE pallets SET status = 'packaging_qc_approved' WHERE id = ?").run(id);
+      }
+      logAction(req, "QUALITY_CHECK", "pallet", 0, `Packaging Quality check passed for ${id}`);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to update quality check" });
+    }
+  });
+
+  app.put("/api/packaging/warehouse/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare("UPDATE pallets SET status = 'in_warehouse' WHERE id = ?").run(id);
+      db.prepare("INSERT INTO warehouse_stock (pallet_id, location) VALUES (?, 'internal_production')").run(id);
+      logAction(req, "SEND_TO_WAREHOUSE", "pallet", 0, `Sent pallet ${id} to warehouse`);
+      res.json({ success: true });
+    } catch (err) {
+      res.status(500).json({ error: "Failed to send to warehouse" });
     }
   });
 
