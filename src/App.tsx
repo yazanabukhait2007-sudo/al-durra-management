@@ -25,6 +25,7 @@ import AuditLogs from "./pages/AuditLogs";
 import Attendance from "./pages/Attendance";
 import ProductionTomato from "./pages/ProductionTomato";
 import ProductionKetchup from "./pages/ProductionKetchup";
+import ProductionManagement from "./pages/ProductionManagement";
 import PackagingDepartment from "./pages/PackagingDepartment";
 import PalletTracking from "./pages/PalletTracking";
 
@@ -167,22 +168,27 @@ function AnimatedRoutes() {
             </ProtectedRoute>
           } />
           <Route path="/production/tomato" element={
-            <ProtectedRoute permission="add_worker">
+            <ProtectedRoute permission="view_production_tomato">
               <Layout><ProductionTomato /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/production/ketchup" element={
-            <ProtectedRoute permission="add_worker">
+            <ProtectedRoute permission="view_production_ketchup">
               <Layout><ProductionKetchup /></Layout>
             </ProtectedRoute>
           } />
+          <Route path="/production/management" element={
+            <ProtectedRoute permission="manage_production">
+              <Layout><ProductionManagement /></Layout>
+            </ProtectedRoute>
+          } />
           <Route path="/packaging" element={
-            <ProtectedRoute permission="view_tasks">
+            <ProtectedRoute permission="view_packaging">
               <Layout><PackagingDepartment /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/laboratory" element={
-            <ProtectedRoute permission="view_lab">
+            <ProtectedRoute permission="view_laboratory">
               <Layout><Laboratory /></Layout>
             </ProtectedRoute>
           } />
@@ -192,7 +198,7 @@ function AnimatedRoutes() {
             </ProtectedRoute>
           } />
           <Route path="/pallet-tracking" element={
-            <ProtectedRoute permission="view_dashboard">
+            <ProtectedRoute permission="track_pallets">
               <Layout><PalletTracking /></Layout>
             </ProtectedRoute>
           } />

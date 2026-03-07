@@ -29,12 +29,28 @@ const ACTION_TRANSLATIONS: Record<string, string> = {
   "CREATE_TASK": "إضافة مهمة",
   "UPDATE_TASK": "تعديل مهمة",
   "DELETE_TASK": "حذف مهمة",
+  "SOFT_DELETE_TASK": "تعطيل مهمة",
+  "REACTIVATE_TASK": "إعادة تفعيل مهمة",
   "CREATE_EVALUATION": "إضافة تقييم",
   "UPDATE_EVALUATION": "تعديل تقييم",
   "DELETE_EVALUATION": "حذف تقييم",
   "CREATE_TRANSACTION": "إضافة حركة مالية",
   "DELETE_TRANSACTION": "حذف حركة مالية",
   "ADD_TRANSACTION": "إضافة حركة مالية",
+  "ADD_PALLET": "إضافة طبلية",
+  "TRANSFER_PALLET": "نقل طبلية",
+  "RECEIVE_PALLET": "استلام طبلية",
+  "START_PACKAGING": "بدء التغليف",
+  "FINISH_PACKAGING": "إنهاء التغليف",
+  "QUALITY_CHECK": "فحص الجودة",
+  "SEND_TO_QUALITY_OFFICER": "إرسال لضابط الجودة",
+  "UPDATE_WORKER_ACCOUNT": "تحديث حساب عامل",
+  "CREATE_WORKER_ACCOUNT": "إنشاء حساب عامل",
+  "UPDATE_PALLET_CERT": "تحديث شهادة الطبلية",
+  "UPDATE_PACKAGING_CERT": "تحديث شهادة التغليف",
+  "UPDATE_PALLET_STATUS": "تحديث حالة الطبلية",
+  "CREATE_WAREHOUSE_REQUEST": "إنشاء طلب مستودع",
+  "UPDATE_WAREHOUSE_REQUEST": "تحديث طلب مستودع",
 };
 
 const translateAction = (action: string) => ACTION_TRANSLATIONS[action] || action;
@@ -45,6 +61,7 @@ const ENTITY_TRANSLATIONS: Record<string, string> = {
   "transaction": "حركة مالية",
   "task": "مهمة",
   "evaluation": "تقييم",
+  "pallet": "طبلية",
 };
 
 const translateEntity = (entity: string) => ENTITY_TRANSLATIONS[entity] || entity;
@@ -86,26 +103,29 @@ export default function AuditLogs() {
   const uniqueActions = Array.from(new Set(logs.map(log => log.action))) as string[];
 
   const getActionColor = (action: string) => {
-    if (action.includes("DELETE")) return "text-red-600 bg-red-50 border-red-100";
-    if (action.includes("CREATE") || action.includes("ADD")) return "text-green-600 bg-green-50 border-green-100";
-    if (action.includes("UPDATE") || action.includes("EDIT")) return "text-blue-600 bg-blue-50 border-blue-100";
-    return "text-gray-600 bg-gray-50 border-gray-100";
+    if (action.includes("DELETE") || action.includes("SOFT_DELETE")) return "text-red-600 bg-red-50 border-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400";
+    if (action.includes("CREATE") || action.includes("ADD") || action.includes("RECEIVE") || action.includes("START")) return "text-green-600 bg-green-50 border-green-100 dark:bg-green-900/20 dark:border-green-800 dark:text-green-400";
+    if (action.includes("UPDATE") || action.includes("EDIT") || action.includes("FINISH") || action.includes("TRANSFER")) return "text-blue-600 bg-blue-50 border-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400";
+    if (action.includes("QUALITY") || action.includes("SEND") || action.includes("CERT") || action.includes("STATUS") || action.includes("REQUEST")) return "text-amber-600 bg-amber-50 border-amber-100 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-400";
+    return "text-gray-600 bg-gray-50 border-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300";
   };
 
   return (
     <div className="space-y-6" dir="rtl">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Activity className="w-8 h-8 text-durra-green" />
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+            <div className="p-2 bg-durra-green/10 rounded-xl">
+              <Activity className="w-8 h-8 text-durra-green" />
+            </div>
             سجل النشاطات (Audit Logs)
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">تتبع جميع الإجراءات التي تمت في النظام</p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">تتبع جميع الإجراءات التي تمت في النظام لضمان الشفافية والأمان</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row gap-4">
+      <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
@@ -113,7 +133,7 @@ export default function AuditLogs() {
             placeholder="بحث في السجل (اسم المستخدم، التفاصيل...)"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pr-10 pl-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-durra-green/20 focus:border-durra-green transition-all outline-none"
+            className="w-full pr-10 pl-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:ring-2 focus:ring-durra-green/20 focus:border-durra-green transition-all outline-none"
           />
         </div>
         <div className="relative min-w-[240px]">
@@ -134,15 +154,15 @@ export default function AuditLogs() {
       </div>
 
       {/* Logs Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-right">
             <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
               <tr>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">الوقت والتاريخ</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">المستخدم</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">الإجراء</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap">التفاصيل</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">الوقت والتاريخ</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">المستخدم</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">الإجراء</th>
+                <th className="px-6 py-4 text-sm font-bold text-gray-600 dark:text-gray-300 whitespace-nowrap">التفاصيل</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -150,8 +170,8 @@ export default function AuditLogs() {
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     <div className="flex flex-col items-center gap-3">
-                      <div className="w-8 h-8 border-4 border-durra-green border-t-transparent rounded-full animate-spin" />
-                      <p>جاري تحميل السجل...</p>
+                      <div className="w-10 h-10 border-4 border-durra-green border-t-transparent rounded-full animate-spin" />
+                      <p className="font-medium">جاري تحميل السجل...</p>
                     </div>
                   </td>
                 </tr>
@@ -159,40 +179,47 @@ export default function AuditLogs() {
                 <tr>
                   <td colSpan={4} className="px-6 py-12 text-center text-gray-500 dark:text-gray-400">
                     <div className="flex flex-col items-center gap-3 opacity-60">
-                      <ShieldAlert className="w-12 h-12 text-gray-400" />
-                      <p>لا توجد سجلات مطابقة للبحث</p>
+                      <ShieldAlert className="w-16 h-16 text-gray-300 dark:text-gray-600" />
+                      <p className="text-lg font-medium">لا توجد سجلات مطابقة للبحث</p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 filteredLogs.map((log) => (
-                  <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
+                  <tr key={log.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-700/30 transition-colors group">
                     <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap font-mono" dir="ltr">
                       <div className="flex items-center gap-2 justify-end">
-                        <span>{format(new Date(log.timestamp), "yyyy-MM-dd HH:mm:ss")}</span>
+                        <span className="font-medium">{format(new Date(log.timestamp), "yyyy-MM-dd HH:mm:ss")}</span>
                         <Clock className="w-4 h-4 opacity-40" />
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-durra-green/10 dark:bg-durra-green/20 flex items-center justify-center text-sm font-bold text-durra-green">
                           {log.username ? log.username.charAt(0).toUpperCase() : "?"}
                         </div>
-                        {log.username || "النظام"}
+                        <div className="flex flex-col">
+                          <span className="font-bold">{log.username || "النظام"}</span>
+                          <span className="text-[10px] text-gray-400 uppercase tracking-wider">ID: {log.user_id || "SYS"}</span>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm whitespace-nowrap">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getActionColor(log.action)}`}>
+                      <span className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${getActionColor(log.action)}`}>
                         {translateAction(log.action)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 max-w-md truncate group-hover:whitespace-normal group-hover:overflow-visible group-hover:break-words">
-                      {log.details}
-                      {log.entity_type && (
-                        <span className="block text-xs text-gray-400 mt-1">
-                          {translateEntity(log.entity_type)} #{log.entity_id}
-                        </span>
-                      )}
+                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300 min-w-[300px]">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-medium leading-relaxed">{log.details}</span>
+                        {log.entity_type && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded text-[10px] font-bold">
+                              {translateEntity(log.entity_type)} #{log.entity_id}
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))

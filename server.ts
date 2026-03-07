@@ -520,7 +520,7 @@ async function startServer() {
       );
 
       // Log login
-      logAction({ user }, "LOGIN", "user", user.id, "User logged in");
+      logAction({ user }, "LOGIN", "user", user.id, "تم تسجيل دخول المستخدم");
 
       res.json({
         token,
@@ -571,7 +571,7 @@ async function startServer() {
       if (existing) return res.status(400).json({ error: "Email already in use" });
 
       db.prepare("UPDATE users SET email = ? WHERE id = ?").run(email, req.user.id);
-      logAction(req, "UPDATE_PROFILE", "user", req.user.id, `Updated email to ${email}`);
+      logAction(req, "UPDATE_PROFILE", "user", req.user.id, `تم تحديث البريد الإلكتروني إلى ${email}`);
       res.json({ success: true, message: "Profile updated successfully" });
     } catch (err) {
       res.status(500).json({ error: "Failed to update profile" });
@@ -592,7 +592,7 @@ async function startServer() {
       const hashed = bcrypt.hashSync(newPassword, 10);
       const now = new Date().toISOString();
       db.prepare("UPDATE users SET password = ?, last_password_update = ? WHERE id = ?").run(hashed, now, req.user.id);
-      logAction(req, "UPDATE_PASSWORD", "user", req.user.id, "Updated password");
+      logAction(req, "UPDATE_PASSWORD", "user", req.user.id, "تم تحديث كلمة المرور");
       res.json({ success: true, message: "Password updated successfully" });
     } catch (err) {
       res.status(500).json({ error: "Failed to update password" });
@@ -620,7 +620,7 @@ async function startServer() {
     console.log("DEBUG: Updating permissions for user:", id, "permissions:", permissions);
     try {
       db.prepare("UPDATE users SET permissions = ? WHERE id = ?").run(JSON.stringify(permissions || []), id);
-      logAction(req, "UPDATE_PERMISSIONS", "user", parseInt(id), `Updated permissions: ${permissions ? permissions.join(", ") : "none"}`);
+      logAction(req, "UPDATE_PERMISSIONS", "user", parseInt(id), `تم تحديث الصلاحيات: ${permissions ? permissions.join(", ") : "لا يوجد"}`);
       res.json({ success: true });
     } catch (err) {
       console.error("DEBUG: Error updating permissions:", err);
@@ -649,7 +649,7 @@ async function startServer() {
     if (!id || !type) return res.status(400).json({ error: "ID and type are required" });
     try {
       db.prepare("INSERT INTO pallets (id, type, details, certificate_data) VALUES (?, ?, ?, ?)").run(id, type, details, JSON.stringify(certificate_data));
-      logAction(req, "ADD_PALLET", "pallet", 0, `Added pallet ${id} of type ${type}`);
+      logAction(req, "ADD_PALLET", "pallet", 0, `تم إضافة طبلية ${id} من نوع ${type}`);
       res.json({ success: true });
     } catch (err: any) {
       res.status(400).json({ error: err.message || "Failed to add pallet" });
@@ -658,14 +658,18 @@ async function startServer() {
 
   app.put("/api/production/pallets/:id", authenticateToken, (req, res) => {
     const { id } = req.params;
-    const { certificate_data, packaging_certificate_data, status } = req.body;
+    const { certificate_data, packaging_certificate_data, status, details, type } = req.body;
 
     try {
       const pallet = db.prepare("SELECT * FROM pallets WHERE id = ?").get(id) as any;
       if (!pallet) return res.status(404).json({ error: "Pallet not found" });
 
+      // Check permissions for general editing
+      const canEdit = (req as any).user.role === 'admin' || 
+                      ((req as any).user.permissions && (req as any).user.permissions.includes('edit_production'));
+
       // Check if quality officer has already signed
-      if (pallet.certificate_data) {
+      if (!canEdit && pallet.certificate_data) {
         try {
           const currentCertData = JSON.parse(pallet.certificate_data);
           if (currentCertData?.signatures?.quality_officer?.signed) {
@@ -692,19 +696,52 @@ async function startServer() {
 
       if (certificate_data) {
         db.prepare("UPDATE pallets SET certificate_data = ? WHERE id = ?").run(JSON.stringify(certificate_data), id);
+        logAction(req, "UPDATE_PALLET_CERT", "pallet", 0, `تم تحديث بيانات الشهادة للطبلية ${id}`);
       }
 
       if (packaging_certificate_data) {
         db.prepare("UPDATE pallets SET packaging_certificate_data = ? WHERE id = ?").run(JSON.stringify(packaging_certificate_data), id);
+        logAction(req, "UPDATE_PACKAGING_CERT", "pallet", 0, `تم تحديث بيانات شهادة التغليف للطبلية ${id}`);
       }
       
       if (status) {
         db.prepare("UPDATE pallets SET status = ? WHERE id = ?").run(status, id);
+        logAction(req, "UPDATE_PALLET_STATUS", "pallet", 0, `تم تحديث حالة الطبلية ${id} إلى ${status}`);
+      }
+
+      if (details && canEdit) {
+        db.prepare("UPDATE pallets SET details = ? WHERE id = ?").run(details, id);
+        logAction(req, "UPDATE_PALLET_DETAILS", "pallet", 0, `تم تحديث تفاصيل الطبلية ${id}`);
+      }
+
+      if (type && canEdit) {
+        db.prepare("UPDATE pallets SET type = ? WHERE id = ?").run(type, id);
+        logAction(req, "UPDATE_PALLET_TYPE", "pallet", 0, `تم تحديث نوع الطبلية ${id} إلى ${type}`);
       }
 
       res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/production/pallets/:id", authenticateToken, requirePermission("delete_production"), (req, res) => {
+    const { id } = req.params;
+    try {
+      const pallet = db.prepare("SELECT * FROM pallets WHERE id = ?").get(id) as any;
+      if (!pallet) return res.status(404).json({ error: "Pallet not found" });
+
+      const transaction = db.transaction(() => {
+        db.prepare("DELETE FROM warehouse_stock WHERE pallet_id = ?").run(id);
+        db.prepare("DELETE FROM warehouse_requests WHERE pallet_id = ?").run(id);
+        db.prepare("DELETE FROM pallets WHERE id = ?").run(id);
+      });
+      transaction();
+      
+      logAction(req, "DELETE_PALLET", "pallet", 0, `تم حذف الطبلية ${id}`);
+      res.json({ success: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || "Failed to delete pallet" });
     }
   });
 
@@ -714,7 +751,7 @@ async function startServer() {
     try {
       db.prepare("UPDATE pallets SET status = 'in_warehouse' WHERE id = ?").run(pallet_id);
       db.prepare("INSERT INTO warehouse_stock (pallet_id, location) VALUES (?, ?)").run(pallet_id, location);
-      logAction(req, "TRANSFER_PALLET", "pallet", 0, `Transferred pallet ${pallet_id} to ${location}`);
+      logAction(req, "TRANSFER_PALLET", "pallet", 0, `تم نقل الطبلية ${pallet_id} إلى ${location}`);
       res.json({ success: true });
     } catch (err: any) {
       res.status(400).json({ error: err.message || "Failed to transfer pallet" });
@@ -755,6 +792,7 @@ async function startServer() {
     if (!pallet_id) return res.status(400).json({ error: "Pallet ID is required" });
     try {
       db.prepare("INSERT INTO warehouse_requests (pallet_id, status) VALUES (?, ?)").run(pallet_id, status || 'pending');
+      logAction(req, "CREATE_WAREHOUSE_REQUEST", "pallet", 0, `تم إنشاء طلب مستودع للطبلية ${pallet_id}`);
       res.json({ success: true });
     } catch (err: any) {
       res.status(400).json({ error: err.message || "Failed to create request" });
@@ -766,6 +804,7 @@ async function startServer() {
     const { status } = req.body;
     try {
       db.prepare("UPDATE warehouse_requests SET status = ? WHERE id = ?").run(status, id);
+      logAction(req, "UPDATE_WAREHOUSE_REQUEST", "pallet", parseInt(id), `تم تحديث حالة طلب المستودع إلى ${status}`);
       res.json({ success: true });
     } catch (err: any) {
       res.status(400).json({ error: err.message || "Failed to update request" });
@@ -775,14 +814,20 @@ async function startServer() {
   // Packaging Department Routes
   app.get("/api/packaging/incoming", authenticateToken, (req, res) => {
     try {
-      // Only show pallets that have been signed by QC in Production (Tomato/Ketchup)
-      // and are still in 'produced' status
-      const pallets = db.prepare("SELECT * FROM pallets WHERE status = 'produced' ORDER BY created_at DESC").all();
+      // Show pallets that are sent to packaging
+      // For Tomato: status 'sent_to_packaging' (after QC sign)
+      // For others: keep existing logic if needed, or just rely on status
+      const pallets = db.prepare("SELECT * FROM pallets WHERE status IN ('produced', 'sent_to_packaging') ORDER BY created_at DESC").all();
       
       const readyPallets = pallets.filter((p: any) => {
         try {
           const cert = JSON.parse(p.certificate_data || '{}');
-          // Require both QC and Quality Officer signatures before sending to packaging
+          
+          if (p.status === 'sent_to_packaging') {
+            return true;
+          }
+
+          // Legacy logic (if any pallets are still 'produced' but fully signed)
           return cert?.signatures?.qc?.signed === true && cert?.signatures?.quality_officer?.signed === true;
         } catch (e) {
           return false;
@@ -817,7 +862,7 @@ async function startServer() {
     const { id } = req.params;
     try {
       db.prepare("UPDATE pallets SET status = 'in_packaging_stock' WHERE id = ?").run(id);
-      logAction(req, "RECEIVE_PALLET", "pallet", 0, `Received pallet ${id} in packaging stock`);
+      logAction(req, "RECEIVE_PALLET", "pallet", 0, `تم استلام الطبلية ${id} في مخزون التغليف`);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to receive pallet" });
@@ -828,7 +873,7 @@ async function startServer() {
     const { id } = req.params;
     try {
       db.prepare("UPDATE pallets SET status = 'packaging_in_progress' WHERE id = ?").run(id);
-      logAction(req, "START_PACKAGING", "pallet", 0, `Started packaging for pallet ${id}`);
+      logAction(req, "START_PACKAGING", "pallet", 0, `بدء عملية التغليف للطبلية ${id}`);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to start packaging" });
@@ -840,7 +885,7 @@ async function startServer() {
     const { packaging_certificate_data } = req.body;
     try {
       db.prepare("UPDATE pallets SET status = 'packaging_done', packaging_certificate_data = ? WHERE id = ?").run(JSON.stringify(packaging_certificate_data), id);
-      logAction(req, "FINISH_PACKAGING", "pallet", 0, `Finished packaging for pallet ${id}`);
+      logAction(req, "FINISH_PACKAGING", "pallet", 0, `تم الانتهاء من تغليف الطبلية ${id}`);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to finish packaging" });
@@ -856,7 +901,7 @@ async function startServer() {
       } else {
          db.prepare("UPDATE pallets SET status = 'packaging_qc_approved' WHERE id = ?").run(id);
       }
-      logAction(req, "QUALITY_CHECK", "pallet", 0, `Packaging Quality check passed for ${id}`);
+      logAction(req, "QUALITY_CHECK", "pallet", 0, `تم اجتياز فحص جودة التغليف للطبلية ${id}`);
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to update quality check" });
@@ -866,12 +911,12 @@ async function startServer() {
   app.put("/api/packaging/warehouse/:id", authenticateToken, (req, res) => {
     const { id } = req.params;
     try {
-      db.prepare("UPDATE pallets SET status = 'in_warehouse' WHERE id = ?").run(id);
-      db.prepare("INSERT INTO warehouse_stock (pallet_id, location) VALUES (?, 'internal_production')").run(id);
-      logAction(req, "SEND_TO_WAREHOUSE", "pallet", 0, `Sent pallet ${id} to warehouse`);
+      // Instead of sending directly to warehouse, send to Quality Officer first
+      db.prepare("UPDATE pallets SET status = 'awaiting_quality_officer' WHERE id = ?").run(id);
+      logAction(req, "SEND_TO_QUALITY_OFFICER", "pallet", 0, `تم إرسال الطبلية ${id} لضابط الجودة (من التغليف)`);
       res.json({ success: true });
     } catch (err) {
-      res.status(500).json({ error: "Failed to send to warehouse" });
+      res.status(500).json({ error: "Failed to send to Quality Officer" });
     }
   });
 
@@ -879,7 +924,7 @@ async function startServer() {
     const { id } = req.params;
     try {
       db.prepare("DELETE FROM users WHERE id = ?").run(id);
-      logAction(req, "DELETE_USER", "user", parseInt(id), "Deleted user");
+      logAction(req, "DELETE_USER", "user", parseInt(id), "تم حذف المستخدم");
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to delete user" });
@@ -915,7 +960,7 @@ async function startServer() {
         social_security_amount || 0,
         notes || null
       );
-      logAction(req, "CREATE_WORKER", "worker", Number(info.lastInsertRowid), `Created worker: ${name}`);
+      logAction(req, "CREATE_WORKER", "worker", Number(info.lastInsertRowid), `تم إضافة عامل جديد: ${name}`);
       res.json({ id: info.lastInsertRowid, name, phone, alt_phone, address, national_id, age, last_workplace, current_job, salary, has_social_security, social_security_amount, notes });
     } catch (err: any) {
       console.error("Failed to create worker:", err);
@@ -969,7 +1014,7 @@ async function startServer() {
         notes || null,
         id
       );
-      logAction(req, "UPDATE_WORKER", "worker", parseInt(id), `Updated worker: ${name}`);
+      logAction(req, "UPDATE_WORKER", "worker", parseInt(id), `تم تحديث بيانات العامل: ${name}`);
       res.json({ success: true });
     } catch (err: any) {
       console.error("Failed to update worker:", err);
@@ -978,7 +1023,7 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/workers/:id", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+  app.delete("/api/workers/:id", authenticateToken, requirePermission("delete_worker"), (req, res) => {
     const { id } = req.params;
     
     const transaction = db.transaction(() => {
@@ -1011,7 +1056,7 @@ async function startServer() {
 
     try {
       transaction();
-      logAction(req, "DELETE_WORKER", "worker", parseInt(id), "Deleted worker and related data");
+      logAction(req, "DELETE_WORKER", "worker", parseInt(id), "تم حذف العامل والبيانات المتعلقة به");
       res.json({ success: true });
     } catch (err) {
       console.error("Failed to delete worker:", err);
@@ -1020,7 +1065,7 @@ async function startServer() {
   });
 
   // Worker Transactions
-  app.get("/api/workers/:id/transactions", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+  app.get("/api/workers/:id/transactions", authenticateToken, requirePermission("view_account_statements"), (req, res) => {
     const { id } = req.params;
     const { month } = req.query; // format: YYYY-MM
     
@@ -1046,7 +1091,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/workers/:id/transactions", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+  app.post("/api/workers/:id/transactions", authenticateToken, requirePermission("add_transaction"), (req, res) => {
     const { id } = req.params;
     const { type, amount, date, description } = req.body;
     
@@ -1060,7 +1105,7 @@ async function startServer() {
         VALUES (?, ?, ?, ?, ?)
       `).run(id, type, amount, date, description || null);
       
-      logAction(req, "CREATE_TRANSACTION", "transaction", Number(info.lastInsertRowid), `Added ${type} of ${amount} for worker ${id}`);
+      logAction(req, "CREATE_TRANSACTION", "transaction", Number(info.lastInsertRowid), `تم إضافة ${type} بمبلغ ${amount} للعامل ${id}`);
 
       res.json({ 
         id: info.lastInsertRowid, 
@@ -1076,11 +1121,11 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/transactions/:id", authenticateToken, requirePermission("manage_workers"), (req, res) => {
+  app.delete("/api/transactions/:id", authenticateToken, requirePermission("delete_transaction"), (req, res) => {
     const { id } = req.params;
     try {
       db.prepare("DELETE FROM worker_transactions WHERE id = ?").run(id);
-      logAction(req, "DELETE_TRANSACTION", "transaction", parseInt(id), "Deleted transaction");
+      logAction(req, "DELETE_TRANSACTION", "transaction", parseInt(id), "تم حذف الحركة المالية");
       res.json({ success: true });
     } catch (err) {
       console.error("Failed to delete transaction:", err);
@@ -1111,7 +1156,7 @@ async function startServer() {
         if (existingTask.is_active === 0) {
           // Reactivate task
           db.prepare("UPDATE tasks SET is_active = 1, target_quantity = ? WHERE id = ?").run(target_quantity, existingTask.id);
-          logAction(req, "REACTIVATE_TASK", "task", existingTask.id, `Reactivated task: ${name}`);
+          logAction(req, "REACTIVATE_TASK", "task", existingTask.id, `تم إعادة تفعيل المهمة: ${name}`);
           return res.json({ id: existingTask.id, name, target_quantity });
         } else {
           return res.status(400).json({ error: "Task already exists" });
@@ -1119,7 +1164,7 @@ async function startServer() {
       }
 
       const info = db.prepare("INSERT INTO tasks (name, target_quantity) VALUES (?, ?)").run(name, target_quantity);
-      logAction(req, "CREATE_TASK", "task", Number(info.lastInsertRowid), `Created task: ${name}`);
+      logAction(req, "CREATE_TASK", "task", Number(info.lastInsertRowid), `تم إنشاء مهمة جديدة: ${name}`);
       res.json({ id: info.lastInsertRowid, name, target_quantity });
     } catch (err: any) {
       console.error("Failed to create task:", err);
@@ -1134,7 +1179,7 @@ async function startServer() {
     if (!name || !target_quantity) return res.status(400).json({ error: "Name and target_quantity are required" });
     try {
       db.prepare("UPDATE tasks SET name = ?, target_quantity = ? WHERE id = ?").run(name, target_quantity, id);
-      logAction(req, "UPDATE_TASK", "task", parseInt(id), `Updated task: ${name}`);
+      logAction(req, "UPDATE_TASK", "task", parseInt(id), `تم تحديث المهمة: ${name}`);
       res.json({ success: true });
     } catch (err: any) {
       console.error("Failed to update task:", err);
@@ -1143,7 +1188,7 @@ async function startServer() {
     }
   });
 
-  app.delete("/api/tasks/:id", authenticateToken, requirePermission("manage_tasks"), (req, res) => {
+  app.delete("/api/tasks/:id", authenticateToken, requirePermission("delete_task"), (req, res) => {
     const { id } = req.params;
     
     try {
@@ -1153,12 +1198,12 @@ async function startServer() {
       if (hasEntries) {
         // Soft delete: just mark as inactive
         db.prepare("UPDATE tasks SET is_active = 0 WHERE id = ?").run(id);
-        logAction(req, "SOFT_DELETE_TASK", "task", parseInt(id), "Marked task as inactive because it has entries");
+        logAction(req, "SOFT_DELETE_TASK", "task", parseInt(id), "تم تعطيل المهمة لوجود سجلات مرتبطة بها");
         return res.json({ success: true, message: "Task marked as inactive because it has history" });
       } else {
         // Hard delete: safe to remove
         db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
-        logAction(req, "DELETE_TASK", "task", parseInt(id), "Deleted task");
+        logAction(req, "DELETE_TASK", "task", parseInt(id), "تم حذف المهمة نهائياً");
         return res.json({ success: true });
       }
     } catch (err) {
@@ -1223,7 +1268,7 @@ async function startServer() {
 
     try {
       const newEvalId = transaction();
-      logAction(req, "CREATE_EVALUATION", "evaluation", Number(newEvalId), `Created evaluation for worker ${worker_id} on ${date}`);
+      logAction(req, "CREATE_EVALUATION", "evaluation", Number(newEvalId), `تم إنشاء تقييم للعامل ${worker_id} بتاريخ ${date}`);
       res.json({ success: true, evaluation_id: newEvalId, daily_score: dailyTotalScore });
     } catch (err) {
       logger("DEBUG: Error in POST /api/evaluations: " + err);
@@ -1314,7 +1359,7 @@ async function startServer() {
 
     try {
       transaction();
-      logAction(req, "DELETE_EVALUATION", "evaluation", parseInt(id), "Deleted evaluation");
+      logAction(req, "DELETE_EVALUATION", "evaluation", parseInt(id), "تم حذف التقييم");
       res.json({ success: true });
     } catch (err) {
       res.status(500).json({ error: "Failed to delete evaluation" });
@@ -1367,7 +1412,7 @@ async function startServer() {
 
     try {
       transaction();
-      logAction(req, "UPDATE_EVALUATION", "evaluation", parseInt(id), "Updated evaluation");
+      logAction(req, "UPDATE_EVALUATION", "evaluation", parseInt(id), "تم تحديث التقييم");
       res.json({ success: true, daily_score: dailyTotalScore });
     } catch (err) {
       res.status(500).json({ error: "Failed to update evaluation" });
@@ -1861,7 +1906,7 @@ async function startServer() {
         db.prepare("UPDATE users SET username = ?, email = ? WHERE id = ?").run(username, email, user.id);
       }
 
-      logAction(req, "UPDATE_WORKER_ACCOUNT", "user", user.id, `Updated account for worker ${workerId}`);
+      logAction(req, "UPDATE_WORKER_ACCOUNT", "user", user.id, `تم تحديث حساب العامل ${workerId}`);
       res.json({ success: true });
     } catch (err) {
       console.error("Failed to update worker account:", err);
@@ -1897,7 +1942,7 @@ async function startServer() {
         VALUES (?, ?, ?, 'worker', '[]', ?, 'approved')
       `).run(username, email, hashed, worker_id);
 
-      logAction(req, "CREATE_WORKER_ACCOUNT", "user", worker_id, `Created account for worker ${worker_id}`);
+      logAction(req, "CREATE_WORKER_ACCOUNT", "user", worker_id, `تم إنشاء حساب للعامل ${worker_id}`);
       res.json({ success: true });
     } catch (err) {
       console.error("Failed to create worker account:", err);

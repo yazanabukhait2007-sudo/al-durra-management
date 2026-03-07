@@ -7,30 +7,49 @@ import { useToast } from "../context/ToastContext";
 import { fetchWithAuth } from "../utils/api";
 
 const AVAILABLE_PERMISSIONS = [
-  { id: "view_dashboard", label: "عرض لوحة القيادة والإحصائيات" },
-  { id: "view_workers", label: "عرض قائمة العمال" },
-  { id: "view_worker_details", label: "عرض تفاصيل العامل (بدون تعديل)" },
-  { id: "add_worker", label: "إضافة عامل جديد" },
-  { id: "edit_worker", label: "تعديل بيانات عامل" },
-  { id: "delete_worker", label: "حذف عامل" },
-  { id: "view_tasks", label: "عرض قائمة المهام" },
-  { id: "add_task", label: "إضافة مهمة جديدة" },
-  { id: "edit_task", label: "تعديل مهمة" },
-  { id: "delete_task", label: "حذف مهمة" },
-  { id: "view_evaluations", label: "عرض التقييمات" },
-  { id: "add_evaluation", label: "إضافة تقييم جديد" },
-  { id: "edit_evaluation", label: "تعديل تقييم" },
-  { id: "delete_evaluation", label: "حذف تقييم" },
-  { id: "view_reports", label: "عرض التقارير وتصديرها" },
-  { id: "view_attendance", label: "عرض سجل الحضور والمغادرات" },
-  { id: "manage_attendance", label: "إدارة الحضور والمغادرات" },
-  { id: "view_account_statements", label: "عرض كشوفات الحساب" },
-  { id: "add_transaction", label: "إضافة حركات مالية" },
-  { id: "delete_transaction", label: "حذف حركات مالية" },
-  { id: "export_pdf", label: "تصدير كشوفات الحساب (PDF)" },
-  { id: "view_work_logs", label: "عرض سجل العمل التفصيلي" },
-  { id: "manage_users", label: "إدارة المستخدمين والصلاحيات" },
-  { id: "view_audit_logs", label: "عرض سجل النشاطات (Audit Logs)" },
+  { id: "view_dashboard", label: "عرض لوحة القيادة والإحصائيات", category: "عام" },
+  { id: "view_reports", label: "عرض التقارير وتصديرها", category: "عام" },
+  { id: "view_audit_logs", label: "عرض سجل النشاطات (Audit Logs)", category: "عام" },
+  { id: "manage_users", label: "إدارة المستخدمين والصلاحيات", category: "عام" },
+  
+  { id: "view_workers", label: "عرض قائمة العمال", category: "الموارد البشرية" },
+  { id: "view_worker_details", label: "عرض تفاصيل العامل", category: "الموارد البشرية" },
+  { id: "add_worker", label: "إضافة عامل جديد", category: "الموارد البشرية" },
+  { id: "edit_worker", label: "تعديل بيانات عامل", category: "الموارد البشرية" },
+  { id: "delete_worker", label: "حذف عامل", category: "الموارد البشرية" },
+  { id: "view_attendance", label: "عرض سجل الحضور والمغادرات", category: "الموارد البشرية" },
+  { id: "manage_attendance", label: "إدارة الحضور والمغادرات", category: "الموارد البشرية" },
+  
+  { id: "view_tasks", label: "عرض قائمة المهام", category: "المهام والتقييم" },
+  { id: "add_task", label: "إضافة مهمة جديدة", category: "المهام والتقييم" },
+  { id: "edit_task", label: "تعديل مهمة", category: "المهام والتقييم" },
+  { id: "delete_task", label: "حذف مهمة", category: "المهام والتقييم" },
+  { id: "view_evaluations", label: "عرض التقييمات", category: "المهام والتقييم" },
+  { id: "add_evaluation", label: "إضافة تقييم جديد", category: "المهام والتقييم" },
+  { id: "edit_evaluation", label: "تعديل تقييم", category: "المهام والتقييم" },
+  { id: "delete_evaluation", label: "حذف تقييم", category: "المهام والتقييم" },
+  { id: "view_work_logs", label: "عرض سجل العمل التفصيلي", category: "المهام والتقييم" },
+  
+  { id: "view_account_statements", label: "عرض كشوفات الحساب", category: "المالية" },
+  { id: "add_transaction", label: "إضافة حركات مالية", category: "المالية" },
+  { id: "delete_transaction", label: "حذف حركات مالية", category: "المالية" },
+  { id: "export_pdf", label: "تصدير كشوفات الحساب (PDF)", category: "المالية" },
+
+  { id: "view_production_tomato", label: "عرض قسم إنتاج البندورة", category: "الإنتاج والجودة" },
+  { id: "manage_production_tomato", label: "إدارة إنتاج البندورة (توقيع مشرف)", category: "الإنتاج والجودة" },
+  { id: "view_production_ketchup", label: "عرض قسم إنتاج الكاتشب", category: "الإنتاج والجودة" },
+  { id: "manage_production_ketchup", label: "إدارة إنتاج الكاتشب (توقيع مشرف)", category: "الإنتاج والجودة" },
+  { id: "manage_production", label: "إدارة الإنتاج (تعديل وحذف الطبالي)", category: "الإنتاج والجودة" },
+  { id: "view_packaging", label: "عرض قسم التغليف", category: "الإنتاج والجودة" },
+  { id: "manage_packaging", label: "إدارة قسم التغليف", category: "الإنتاج والجودة" },
+  { id: "view_laboratory", label: "عرض المختبر", category: "الإنتاج والجودة" },
+  { id: "manage_laboratory", label: "إدارة المختبر (توقيع QC)", category: "الإنتاج والجودة" },
+  { id: "view_warehouse", label: "عرض المستودع", category: "الإنتاج والجودة" },
+  { id: "manage_warehouse", label: "إدارة المستودع (توقيع مستلم)", category: "الإنتاج والجودة" },
+  { id: "track_pallets", label: "تتبع الطبالي", category: "الإنتاج والجودة" },
+  { id: "quality_officer", label: "ضابط الجودة (الاعتماد النهائي)", category: "الإنتاج والجودة" },
+  { id: "edit_production", label: "تعديل بيانات الإنتاج (مستودع/تغليف/مختبر)", category: "الإنتاج والجودة" },
+  { id: "delete_production", label: "حذف بيانات الإنتاج (مستودع/تغليف/مختبر)", category: "الإنتاج والجودة" },
 ];
 
 export default function AdminUsers() {
@@ -39,6 +58,9 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+  const [permissionSearch, setPermissionSearch] = useState("");
+
+  const categories = Array.from(new Set(AVAILABLE_PERMISSIONS.map(p => p.category)));
 
   const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, id: number | null}>({ isOpen: false, id: null });
 
@@ -198,28 +220,73 @@ export default function AdminUsers() {
           onClick={() => setSelectedUser(null)}
         >
           <div 
-            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-xl border border-gray-100 dark:border-gray-700"
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl shadow-xl border border-gray-100 dark:border-gray-700 flex flex-col max-h-[90vh]"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
               تعديل صلاحيات {selectedUser.username}
             </h3>
             
-            <div className="space-y-3 mb-6 max-h-[60vh] overflow-y-auto">
-              {AVAILABLE_PERMISSIONS.map((perm) => (
-                <label key={perm.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={selectedPermissions.includes(perm.id)}
-                    onChange={() => togglePermission(perm.id)}
-                    className="w-5 h-5 text-durra-green rounded border-gray-300 dark:border-gray-600 focus:ring-durra-green bg-white dark:bg-gray-700"
-                  />
-                  <span className="text-gray-800 dark:text-gray-200 font-medium">{perm.label}</span>
-                </label>
-              ))}
+            <div className="mb-4">
+              <input
+                type="text"
+                placeholder="بحث عن صلاحية..."
+                value={permissionSearch}
+                onChange={(e) => setPermissionSearch(e.target.value)}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-durra-green outline-none transition-all"
+              />
             </div>
 
-            <div className="flex gap-3 justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
+            <div className="flex-1 overflow-y-auto pr-2 space-y-6">
+              {categories.map((category) => {
+                const categoryPerms = AVAILABLE_PERMISSIONS.filter(p => 
+                  p.category === category && 
+                  p.label.toLowerCase().includes(permissionSearch.toLowerCase())
+                );
+                
+                if (categoryPerms.length === 0) return null;
+                
+                const allSelected = categoryPerms.every(p => selectedPermissions.includes(p.id));
+                
+                return (
+                  <div key={category} className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700 pb-2">
+                      <h4 className="text-sm font-bold text-durra-green dark:text-durra-green-light">
+                        {category}
+                      </h4>
+                      <button
+                        onClick={() => {
+                          const categoryIds = categoryPerms.map(p => p.id);
+                          if (allSelected) {
+                            setSelectedPermissions(prev => prev.filter(id => !categoryIds.includes(id)));
+                          } else {
+                            setSelectedPermissions(prev => [...new Set([...prev, ...categoryIds])]);
+                          }
+                        }}
+                        className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                      >
+                        {allSelected ? 'إلغاء الكل' : 'تحديد الكل'}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {categoryPerms.map((perm) => (
+                        <label key={perm.id} className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-all hover:shadow-sm">
+                          <input
+                            type="checkbox"
+                            checked={selectedPermissions.includes(perm.id)}
+                            onChange={() => togglePermission(perm.id)}
+                            className="w-5 h-5 text-durra-green rounded border-gray-300 dark:border-gray-600 focus:ring-durra-green bg-white dark:bg-gray-700"
+                          />
+                          <span className="text-gray-700 dark:text-gray-200 text-sm font-medium leading-tight">{perm.label}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex gap-3 justify-end pt-6 mt-4 border-t border-gray-100 dark:border-gray-700">
               <button
                 onClick={() => setSelectedUser(null)}
                 className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium"
@@ -228,9 +295,9 @@ export default function AdminUsers() {
               </button>
               <button
                 onClick={() => handleUpdatePermissions(selectedUser.id)}
-                className="px-6 py-2 bg-durra-green text-white rounded-lg hover:bg-durra-green-light transition-colors font-bold shadow-sm"
+                className="px-8 py-2 bg-durra-green text-white rounded-lg hover:bg-durra-green-light transition-colors font-bold shadow-md"
               >
-                حفظ
+                حفظ التغييرات
               </button>
             </div>
           </div>
