@@ -645,10 +645,15 @@ async function startServer() {
   });
 
   app.post("/api/production/pallets", authenticateToken, (req, res) => {
-    const { id, type, details, certificate_data } = req.body;
+    const { id, type, details, certificate_data, location, status } = req.body;
     if (!id || !type) return res.status(400).json({ error: "ID and type are required" });
     try {
-      db.prepare("INSERT INTO pallets (id, type, details, certificate_data) VALUES (?, ?, ?, ?)").run(id, type, details, JSON.stringify(certificate_data));
+      db.transaction(() => {
+        db.prepare("INSERT INTO pallets (id, type, details, certificate_data, status) VALUES (?, ?, ?, ?, ?)").run(id, type, details, JSON.stringify(certificate_data), status || 'produced');
+        if (location) {
+          db.prepare("INSERT INTO warehouse_stock (pallet_id, location) VALUES (?, ?)").run(id, location);
+        }
+      })();
       logAction(req, "ADD_PALLET", "pallet", 0, `تم إضافة طبلية ${id} من نوع ${type}`);
       res.json({ success: true });
     } catch (err: any) {

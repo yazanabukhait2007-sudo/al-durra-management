@@ -178,6 +178,18 @@ const PalletTracking = () => {
             <span className="font-medium">{cert.expiry_date}</span>
           </div>
           <div className="flex justify-between border-b border-gray-200/50 pb-2">
+            <span className="text-gray-500">الزبون:</span>
+            <span className="font-medium">{cert.customer || '-'}</span>
+          </div>
+          <div className="flex justify-between border-b border-gray-200/50 pb-2">
+            <span className="text-gray-500">البلد:</span>
+            <span className="font-medium">{cert.country || '-'}</span>
+          </div>
+          <div className="flex justify-between border-b border-gray-200/50 pb-2">
+            <span className="text-gray-500">رقم الطلبية:</span>
+            <span className="font-medium">{cert.order_number || '-'}</span>
+          </div>
+          <div className="flex justify-between border-b border-gray-200/50 pb-2">
             <span className="text-gray-500">رقم شهادة المطابقة:</span>
             <span className="font-medium">{cert.certificate_number}</span>
           </div>

@@ -24,6 +24,9 @@ interface PalletCertificate {
   expiry_date: string;
   warehouse_target: string;
   certificate_number: string;
+  customer?: string;
+  country?: string;
+  order_number?: string;
   notes: string;
   signatures?: {
     supervisor?: {
@@ -70,6 +73,9 @@ const ProductionKetchup = () => {
     expiry_date: "",
     warehouse_target: "",
     certificate_number: "",
+    customer: "",
+    country: "",
+    order_number: "",
     notes: "",
   });
 
@@ -435,6 +441,18 @@ const ProductionKetchup = () => {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">رقم شهادة المطابقة</label>
             <input type="text" name="certificate_number" value={formData.certificate_number} onChange={handleInputChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">الزبون</label>
+            <input type="text" name="customer" value={formData.customer || ''} onChange={handleInputChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">البلد</label>
+            <input type="text" name="country" value={formData.country || ''} onChange={handleInputChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">رقم الطلبية</label>
+            <input type="text" name="order_number" value={formData.order_number || ''} onChange={handleInputChange} className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-red-500" />
           </div>
         </div>
 
@@ -933,6 +951,9 @@ const ProductionKetchup = () => {
                       <div><span className="text-gray-500">تاريخ الإنتاج:</span> {certData.production_date || '-'}</div>
                       <div><span className="text-gray-500">تاريخ الانتهاء:</span> {certData.expiry_date || '-'}</div>
                       <div><span className="text-gray-500">رقم شهادة المطابقة:</span> {certData.certificate_number || '-'}</div>
+                      <div><span className="text-gray-500">الزبون:</span> {certData.customer || '-'}</div>
+                      <div><span className="text-gray-500">البلد:</span> {certData.country || '-'}</div>
+                      <div><span className="text-gray-500">رقم الطلبية:</span> {certData.order_number || '-'}</div>
                       <div><span className="text-gray-500">إلى مستودع:</span> {certData.warehouse_target || '-'}</div>
                     </div>
 

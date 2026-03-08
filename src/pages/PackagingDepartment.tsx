@@ -984,6 +984,33 @@ const PackagingDepartment = () => {
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1 text-right">الزبون</label>
+                  <input 
+                    type="text" 
+                    value={certFormData.customer || ''} 
+                    onChange={e => setCertFormData({...certFormData, customer: e.target.value})}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1 text-right">البلد</label>
+                  <input 
+                    type="text" 
+                    value={certFormData.country || ''} 
+                    onChange={e => setCertFormData({...certFormData, country: e.target.value})}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1 text-right">رقم الطلبية</label>
+                  <input 
+                    type="text" 
+                    value={certFormData.order_number || ''} 
+                    onChange={e => setCertFormData({...certFormData, order_number: e.target.value})}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                  />
+                </div>
               </div>
 
               {/* Gray Box Section */}
@@ -1200,6 +1227,42 @@ const PackagingDepartment = () => {
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">الزبون</label>
+                      <input 
+                        type="text" 
+                        value={editFormData.certificate_data.customer || ''} 
+                        onChange={e => setEditFormData({
+                          ...editFormData, 
+                          certificate_data: {...editFormData.certificate_data, customer: e.target.value}
+                        })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">البلد</label>
+                      <input 
+                        type="text" 
+                        value={editFormData.certificate_data.country || ''} 
+                        onChange={e => setEditFormData({
+                          ...editFormData, 
+                          certificate_data: {...editFormData.certificate_data, country: e.target.value}
+                        })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">رقم الطلبية</label>
+                      <input 
+                        type="text" 
+                        value={editFormData.certificate_data.order_number || ''} 
+                        onChange={e => setEditFormData({
+                          ...editFormData, 
+                          certificate_data: {...editFormData.certificate_data, order_number: e.target.value}
+                        })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
@@ -1228,6 +1291,42 @@ const PackagingDepartment = () => {
                         onChange={e => setEditFormData({
                           ...editFormData, 
                           packaging_certificate_data: {...editFormData.packaging_certificate_data, carton_count: e.target.value}
+                        })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">الزبون (تغليف)</label>
+                      <input 
+                        type="text" 
+                        value={editFormData.packaging_certificate_data.customer || ''} 
+                        onChange={e => setEditFormData({
+                          ...editFormData, 
+                          packaging_certificate_data: {...editFormData.packaging_certificate_data, customer: e.target.value}
+                        })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">البلد (تغليف)</label>
+                      <input 
+                        type="text" 
+                        value={editFormData.packaging_certificate_data.country || ''} 
+                        onChange={e => setEditFormData({
+                          ...editFormData, 
+                          packaging_certificate_data: {...editFormData.packaging_certificate_data, country: e.target.value}
+                        })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">رقم الطلبية (تغليف)</label>
+                      <input 
+                        type="text" 
+                        value={editFormData.packaging_certificate_data.order_number || ''} 
+                        onChange={e => setEditFormData({
+                          ...editFormData, 
+                          packaging_certificate_data: {...editFormData.packaging_certificate_data, order_number: e.target.value}
                         })}
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
@@ -1441,6 +1540,18 @@ const PackagingDepartment = () => {
                             <div className="bg-white p-3 rounded-xl border border-purple-50">
                               <span className="text-gray-500 block text-xs mb-1">المستودع المستهدف</span>
                               <span className="font-bold text-gray-900">{pkgCertData.warehouse_target || '-'}</span>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-purple-50">
+                              <span className="text-gray-500 block text-xs mb-1">الزبون</span>
+                              <span className="font-bold text-gray-900">{pkgCertData.customer || '-'}</span>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-purple-50">
+                              <span className="text-gray-500 block text-xs mb-1">البلد</span>
+                              <span className="font-bold text-gray-900">{pkgCertData.country || '-'}</span>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-purple-50">
+                              <span className="text-gray-500 block text-xs mb-1">رقم الطلبية</span>
+                              <span className="font-bold text-gray-900">{pkgCertData.order_number || '-'}</span>
                             </div>
                             {pkgCertData.notes && (
                               <div className="col-span-2 bg-white p-3 rounded-xl border border-purple-50">

@@ -88,6 +88,9 @@ const WarehousePage = () => {
     expiry_date: '',
     warehouse_target: '',
     certificate_number: '',
+    customer: '',
+    country: '',
+    order_number: '',
     notes: '',
     signatures: {
       supervisor: { signed: false, name: 'مشرف الإنتاج', date: '' },
@@ -117,11 +120,12 @@ const WarehousePage = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pallet_id: palletCode,
+          id: palletCode,
           type: productionType,
-          details: certData.item_name,
+          details: `${certData.item_name} - ${certData.carton_count} كرتونة`,
           certificate_data: certData,
-          location: 'internal_production'
+          location: 'internal_production',
+          status: certData.signatures.warehouse.signed ? 'in_warehouse' : 'produced'
         }),
       });
 
@@ -570,6 +574,18 @@ const WarehousePage = () => {
                                     <span className="text-gray-500 block text-xs mb-1">تاريخ الانتهاء</span>
                                     <span className="font-bold text-gray-900">{selectedDetails._productionCert.expiry_date || '-'}</span>
                                   </div>
+                                  <div className="bg-white p-3 rounded-xl border border-blue-50">
+                                    <span className="text-gray-500 block text-xs mb-1">الزبون</span>
+                                    <span className="font-bold text-gray-900">{selectedDetails._productionCert.customer || '-'}</span>
+                                  </div>
+                                  <div className="bg-white p-3 rounded-xl border border-blue-50">
+                                    <span className="text-gray-500 block text-xs mb-1">البلد</span>
+                                    <span className="font-bold text-gray-900">{selectedDetails._productionCert.country || '-'}</span>
+                                  </div>
+                                  <div className="bg-white p-3 rounded-xl border border-blue-50">
+                                    <span className="text-gray-500 block text-xs mb-1">رقم الطلبية</span>
+                                    <span className="font-bold text-gray-900">{selectedDetails._productionCert.order_number || '-'}</span>
+                                  </div>
                                 </div>
                                 
                                 <div className="mt-6 pt-4 border-t border-blue-200">
@@ -668,6 +684,18 @@ const WarehousePage = () => {
                                   <div className="bg-white p-3 rounded-xl border border-purple-50">
                                     <span className="text-gray-500 block text-xs mb-1">المستودع المستهدف</span>
                                     <span className="font-bold text-gray-900">{selectedDetails._packagingCert.warehouse_target || '-'}</span>
+                                  </div>
+                                  <div className="bg-white p-3 rounded-xl border border-purple-50">
+                                    <span className="text-gray-500 block text-xs mb-1">الزبون</span>
+                                    <span className="font-bold text-gray-900">{selectedDetails._packagingCert.customer || '-'}</span>
+                                  </div>
+                                  <div className="bg-white p-3 rounded-xl border border-purple-50">
+                                    <span className="text-gray-500 block text-xs mb-1">البلد</span>
+                                    <span className="font-bold text-gray-900">{selectedDetails._packagingCert.country || '-'}</span>
+                                  </div>
+                                  <div className="bg-white p-3 rounded-xl border border-purple-50">
+                                    <span className="text-gray-500 block text-xs mb-1">رقم الطلبية</span>
+                                    <span className="font-bold text-gray-900">{selectedDetails._packagingCert.order_number || '-'}</span>
                                   </div>
                                   {selectedDetails._packagingCert.notes && (
                                     <div className="col-span-2 bg-white p-3 rounded-xl border border-purple-50">
@@ -1152,6 +1180,33 @@ const WarehousePage = () => {
                       type="text" 
                       value={certData.certificate_number} 
                       onChange={e => setCertData({...certData, certificate_number: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 text-right"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 text-right">الزبون</label>
+                    <input 
+                      type="text" 
+                      value={certData.customer || ''} 
+                      onChange={e => setCertData({...certData, customer: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 text-right"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 text-right">البلد</label>
+                    <input 
+                      type="text" 
+                      value={certData.country || ''} 
+                      onChange={e => setCertData({...certData, country: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 text-right"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 text-right">رقم الطلبية</label>
+                    <input 
+                      type="text" 
+                      value={certData.order_number || ''} 
+                      onChange={e => setCertData({...certData, order_number: e.target.value})}
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 text-right"
                     />
                   </div>
