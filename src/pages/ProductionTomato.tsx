@@ -118,6 +118,9 @@ const ProductionTomato = () => {
       expiry_date: certData.expiry_date || "",
       warehouse_target: certData.warehouse_target || "",
       certificate_number: certData.certificate_number || "",
+      customer: certData.customer || "",
+      country: certData.country || "",
+      order_number: certData.order_number || "",
       notes: certData.notes || "",
     });
     setEditingId(pallet.id);
@@ -137,6 +140,9 @@ const ProductionTomato = () => {
       expiry_date: "",
       warehouse_target: "",
       certificate_number: "",
+      customer: "",
+      country: "",
+      order_number: "",
       notes: "",
     });
   };
@@ -239,6 +245,9 @@ const ProductionTomato = () => {
           expiry_date: "",
           warehouse_target: "",
           certificate_number: "",
+          customer: "",
+          country: "",
+          order_number: "",
           notes: "",
         });
       }
