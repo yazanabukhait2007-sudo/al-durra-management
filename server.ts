@@ -171,6 +171,20 @@ db.exec(`
     FOREIGN KEY (pallet_id) REFERENCES pallets(id)
   );
   
+  -- جدول الطلبيات
+  CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    zone_name TEXT NOT NULL,
+    country TEXT NOT NULL,
+    item_name TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    weight REAL NOT NULL,
+    order_number TEXT NOT NULL UNIQUE,
+    general_specs TEXT,
+    status TEXT DEFAULT 'pending',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+  
   -- إدراج القيم الافتراضية للإعدادات إذا لم تكن موجودة
   INSERT OR IGNORE INTO app_settings (key, value) VALUES 
     ('official_start_time', '08:00'),
@@ -628,6 +642,71 @@ async function startServer() {
     }
   });
 
+  // Orders API
+  app.get("/api/orders", authenticateToken, (req, res) => {
+    try {
+      const orders = db.prepare("SELECT * FROM orders ORDER BY created_at DESC").all();
+      res.json(orders);
+    } catch (err) {
+      console.error("Error fetching orders:", err);
+      res.status(500).json({ error: "Failed to fetch orders" });
+    }
+  });
+
+  app.post("/api/orders", authenticateToken, (req, res) => {
+    const { zone_name, country, item_name, quantity, weight, order_number, general_specs } = req.body;
+    try {
+      const result = db.prepare(`
+        INSERT INTO orders (zone_name, country, item_name, quantity, weight, order_number, general_specs)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(zone_name, country, item_name, quantity, weight, order_number, general_specs);
+      
+      logAction(req, "CREATE_ORDER", "order", Number(result.lastInsertRowid), `تم إنشاء طلبية جديدة: ${order_number}`);
+      res.json({ success: true, id: result.lastInsertRowid });
+    } catch (err: any) {
+      console.error("Error creating order:", err);
+      if (err.message && err.message.includes("UNIQUE constraint failed")) {
+        res.status(400).json({ error: "رقم الطلبية موجود مسبقاً" });
+      } else {
+        res.status(500).json({ error: "Failed to create order" });
+      }
+    }
+  });
+
+  app.put("/api/orders/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    const { zone_name, country, item_name, quantity, weight, order_number, general_specs, status } = req.body;
+    try {
+      db.prepare(`
+        UPDATE orders 
+        SET zone_name = ?, country = ?, item_name = ?, quantity = ?, weight = ?, order_number = ?, general_specs = ?, status = ?
+        WHERE id = ?
+      `).run(zone_name, country, item_name, quantity, weight, order_number, general_specs, status || 'pending', id);
+      
+      logAction(req, "UPDATE_ORDER", "order", parseInt(id), `تم تحديث الطلبية: ${order_number}`);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Error updating order:", err);
+      if (err.message && err.message.includes("UNIQUE constraint failed")) {
+        res.status(400).json({ error: "رقم الطلبية موجود مسبقاً" });
+      } else {
+        res.status(500).json({ error: "Failed to update order" });
+      }
+    }
+  });
+
+  app.delete("/api/orders/:id", authenticateToken, (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare("DELETE FROM orders WHERE id = ?").run(id);
+      logAction(req, "DELETE_ORDER", "order", parseInt(id), `تم حذف الطلبية`);
+      res.json({ success: true });
+    } catch (err) {
+      console.error("Error deleting order:", err);
+      res.status(500).json({ error: "Failed to delete order" });
+    }
+  });
+
   // Production & Warehouse
   app.get("/api/production/pallets", authenticateToken, (req, res) => {
     const { type } = req.query;
@@ -666,6 +745,7 @@ async function startServer() {
     const { certificate_data, packaging_certificate_data, status, details, type } = req.body;
 
     try {
+      console.log(`DEBUG: Updating pallet ${id}, user role: ${(req as any).user.role}, body: ${JSON.stringify(req.body)}`);
       const pallet = db.prepare("SELECT * FROM pallets WHERE id = ?").get(id) as any;
       if (!pallet) return res.status(404).json({ error: "Pallet not found" });
 
@@ -700,16 +780,43 @@ async function startServer() {
       }
 
       if (certificate_data) {
-        db.prepare("UPDATE pallets SET certificate_data = ? WHERE id = ?").run(JSON.stringify(certificate_data), id);
+        const currentCertData = pallet.certificate_data ? JSON.parse(pallet.certificate_data) : {};
+        const newCertData = typeof certificate_data === 'string' ? JSON.parse(certificate_data) : certificate_data;
+        
+        // Merge signatures from current data into new data
+        const mergedCertData = {
+          ...newCertData,
+          signatures: {
+            ...(currentCertData.signatures || {}),
+            ...(newCertData.signatures || {})
+          }
+        };
+        
+        const certDataToSave = JSON.stringify(mergedCertData);
+        db.prepare("UPDATE pallets SET certificate_data = ? WHERE id = ?").run(certDataToSave, id);
         logAction(req, "UPDATE_PALLET_CERT", "pallet", 0, `تم تحديث بيانات الشهادة للطبلية ${id}`);
       }
 
       if (packaging_certificate_data) {
-        db.prepare("UPDATE pallets SET packaging_certificate_data = ? WHERE id = ?").run(JSON.stringify(packaging_certificate_data), id);
+        const currentPkgCertData = pallet.packaging_certificate_data ? JSON.parse(pallet.packaging_certificate_data) : {};
+        const newPkgCertData = typeof packaging_certificate_data === 'string' ? JSON.parse(packaging_certificate_data) : packaging_certificate_data;
+        
+        // Merge signatures from current data into new data
+        const mergedPkgCertData = {
+          ...newPkgCertData,
+          signatures: {
+            ...(currentPkgCertData.signatures || {}),
+            ...(newPkgCertData.signatures || {})
+          }
+        };
+        
+        const pkgCertDataToSave = JSON.stringify(mergedPkgCertData);
+        db.prepare("UPDATE pallets SET packaging_certificate_data = ? WHERE id = ?").run(pkgCertDataToSave, id);
         logAction(req, "UPDATE_PACKAGING_CERT", "pallet", 0, `تم تحديث بيانات شهادة التغليف للطبلية ${id}`);
       }
       
       if (status) {
+        console.log(`DEBUG: Updating status for pallet ${id} to ${status}`);
         db.prepare("UPDATE pallets SET status = ? WHERE id = ?").run(status, id);
         logAction(req, "UPDATE_PALLET_STATUS", "pallet", 0, `تم تحديث حالة الطبلية ${id} إلى ${status}`);
       }
@@ -781,10 +888,17 @@ async function startServer() {
   app.get("/api/warehouse/stock", authenticateToken, (req, res) => {
     try {
       const stock = db.prepare(`
-        SELECT w.*, p.details, p.certificate_data, p.packaging_certificate_data 
+        SELECT w.id, w.pallet_id, w.location, w.added_at, p.details, p.type, p.certificate_data, p.packaging_certificate_data 
         FROM warehouse_stock w 
         LEFT JOIN pallets p ON w.pallet_id = p.id 
-        ORDER BY w.added_at DESC
+        
+        UNION ALL
+        
+        SELECT NULL as id, p.id as pallet_id, 'internal_production' as location, p.created_at as added_at, p.details, p.type, p.certificate_data, p.packaging_certificate_data
+        FROM pallets p
+        WHERE p.status = 'in_warehouse' AND p.id NOT IN (SELECT pallet_id FROM warehouse_stock)
+        
+        ORDER BY added_at DESC
       `).all();
       res.json(stock);
     } catch (err) {
@@ -796,6 +910,11 @@ async function startServer() {
     const { pallet_id, status } = req.body;
     if (!pallet_id) return res.status(400).json({ error: "Pallet ID is required" });
     try {
+      const existing = db.prepare("SELECT id FROM warehouse_requests WHERE pallet_id = ?").get(pallet_id);
+      if (existing) {
+        res.json({ success: true, message: "Request already exists" });
+        return;
+      }
       db.prepare("INSERT INTO warehouse_requests (pallet_id, status) VALUES (?, ?)").run(pallet_id, status || 'pending');
       logAction(req, "CREATE_WAREHOUSE_REQUEST", "pallet", 0, `تم إنشاء طلب مستودع للطبلية ${pallet_id}`);
       res.json({ success: true });

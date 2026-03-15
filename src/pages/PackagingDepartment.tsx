@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "motion/react";
-import { Package, CheckCircle, AlertCircle, ArrowRight, Truck, Barcode, ClipboardCheck, Play, Box, List, History, Search, FileText, BarChart3, Edit2, Trash2, X } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { 
+  Package, CheckCircle, AlertCircle, ArrowRight, Truck, Barcode, 
+  ClipboardCheck, Play, Box, List, History, Search, FileText, 
+  BarChart3, Edit2, Trash2, X, Calendar, Building2, Tag, Weight, 
+  Hash, Layers, CalendarCheck, CalendarX, ShieldCheck, User, 
+  Globe, ClipboardList, FileX, Clock 
+} from "lucide-react";
 import { fetchWithAuth } from "../utils/api";
 import CustomDatePicker from "../components/CustomDatePicker";
 import { useToast } from "../context/ToastContext";
@@ -34,6 +40,8 @@ const PackagingDepartment = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const { showToast } = useToast();
+  const [orders, setOrders] = useState<any[]>([]);
+  const [orderWarning, setOrderWarning] = useState("");
 
   // Edit/Delete State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -102,7 +110,20 @@ const PackagingDepartment = () => {
 
   useEffect(() => {
     loadAllData();
+    loadOrders();
   }, []);
+
+  const loadOrders = async () => {
+    try {
+      const res = await fetchWithAuth("/api/orders");
+      if (res.ok) {
+        const data = await res.json();
+        setOrders(data);
+      }
+    } catch (err) {
+      console.error("Failed to load orders", err);
+    }
+  };
 
   const loadAllData = () => {
     loadIncomingPallets();
@@ -202,9 +223,24 @@ const PackagingDepartment = () => {
       expiry_date: prodCert.expiry_date || '',
       certificate_number: prodCert.certificate_number || '',
       warehouse_target: prodCert.warehouse_target || '',
+      order_number: prodCert.order_number || '',
       supervisor_name: '',
       notes: ''
     });
+
+    if (prodCert.order_number && prodCert.order_number.trim() !== '') {
+      const order = orders.find(o => o.order_number === prodCert.order_number.trim());
+      if (!order) {
+        setOrderWarning("تحذير: رقم الطلبية غير موجود في النظام");
+      } else if (order.status === 'completed') {
+        setOrderWarning("تحذير: هذه الطلبية مكتملة بالفعل");
+      } else {
+        setOrderWarning("");
+      }
+    } else {
+      setOrderWarning("");
+    }
+
     setShowCertModal(true);
   };
 
@@ -271,12 +307,30 @@ const PackagingDepartment = () => {
 
   const handleEditClick = (pallet: Pallet) => {
     setSelectedPallet(pallet);
+    const prodCert = safeParse(pallet.certificate_data);
+    const packCert = safeParse(pallet.packaging_certificate_data);
+    
     setEditFormData({
       details: pallet.details,
       type: pallet.type,
-      certificate_data: safeParse(pallet.certificate_data),
-      packaging_certificate_data: safeParse(pallet.packaging_certificate_data)
+      certificate_data: prodCert,
+      packaging_certificate_data: packCert
     });
+
+    const orderNumber = packCert.order_number || prodCert.order_number;
+    if (orderNumber && orderNumber.trim() !== '') {
+      const order = orders.find(o => o.order_number === orderNumber.trim());
+      if (!order) {
+        setOrderWarning("تحذير: رقم الطلبية غير موجود في النظام");
+      } else if (order.status === 'completed') {
+        setOrderWarning("تحذير: هذه الطلبية مكتملة بالفعل");
+      } else {
+        setOrderWarning("");
+      }
+    } else {
+      setOrderWarning("");
+    }
+
     setShowEditModal(true);
   };
 
@@ -398,13 +452,25 @@ const PackagingDepartment = () => {
                   <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">وارد جديد</span>
                 </div>
                 <p className="text-sm text-gray-600 mb-4">{pallet.details}</p>
-                <button
-                  onClick={() => handleReceivePallet(pallet.id)}
-                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors flex justify-center items-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  استلام للمخزون
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleReceivePallet(pallet.id)}
+                    className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition-colors flex justify-center items-center gap-2"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    استلام للمخزون
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedPallet(pallet);
+                      setShowDetailsModal(true);
+                    }}
+                    className="px-3 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
+                    title="عرض التفاصيل"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -434,13 +500,25 @@ const PackagingDepartment = () => {
                   <span className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded-full">في المخزون</span>
                 </div>
                 <p className="text-sm text-gray-600 mb-4">{pallet.details}</p>
-                <button
-                  onClick={() => handleStartPackaging(pallet.id)}
-                  className="w-full bg-orange-600 text-white py-2 rounded-md hover:bg-orange-700 transition-colors flex justify-center items-center gap-2"
-                >
-                  <Play className="w-4 h-4" />
-                  بدء التغليف
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleStartPackaging(pallet.id)}
+                    className="flex-1 bg-orange-600 text-white py-2 rounded-md hover:bg-orange-700 transition-colors flex justify-center items-center gap-2"
+                  >
+                    <Play className="w-4 h-4" />
+                    بدء التغليف
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedPallet(pallet);
+                      setShowDetailsModal(true);
+                    }}
+                    className="px-3 bg-gray-100 text-gray-600 rounded-md hover:bg-gray-200 transition-colors flex items-center justify-center"
+                    title="عرض التفاصيل"
+                  >
+                    <FileText className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -488,21 +566,47 @@ const PackagingDepartment = () => {
                       <td className="px-6 py-4">
                         {pallet.status === 'packaging_in_progress' && (
                           <span className="px-3 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700">
-                            قيد التغليف
+                            جاري عملية التغليف
                           </span>
                         )}
                         {pallet.status === 'packaging_done' && (
                           <span className="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-                            تم التغليف (بانتظار الجودة)
+                            مكتمل التغليف - بانتظار موافقة الجودة
                           </span>
                         )}
                         {pallet.status === 'packaging_qc_approved' && (
                           <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
-                            جاهز للمستودع
+                            جاهز للنقل للمستودع
+                          </span>
+                        )}
+                        {pallet.status === 'awaiting_quality_officer' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-100">
+                            بانتظار توقيع ضابط الجودة
+                          </span>
+                        )}
+                        {pallet.status === 'awaiting_warehouse' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                            بانتظار توقيع المستودع
+                          </span>
+                        )}
+                        {pallet.status === 'in_warehouse' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                            تم التخزين في المستودع النهائي
                           </span>
                         )}
                       </td>
                       <td className="px-6 py-4 flex gap-2">
+                        <button
+                          onClick={() => {
+                            setSelectedPallet(pallet);
+                            setShowDetailsModal(true);
+                          }}
+                          className="text-sm text-gray-600 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-md flex items-center gap-1 transition-colors"
+                          title="عرض التفاصيل"
+                        >
+                          <FileText className="w-3 h-3" />
+                          تفاصيل
+                        </button>
                         {pallet.status === 'packaging_in_progress' && (
                           <button
                             onClick={() => openCertModal(pallet)}
@@ -743,15 +847,19 @@ const PackagingDepartment = () => {
                               pallet.status === 'packaging_in_progress' ? 'bg-yellow-50 text-yellow-700 border border-yellow-100' :
                               pallet.status === 'packaging_done' ? 'bg-purple-50 text-purple-700 border border-purple-100' :
                               pallet.status === 'packaging_qc_approved' ? 'bg-green-50 text-green-700 border border-green-100' :
+                              pallet.status === 'awaiting_quality_officer' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
+                              pallet.status === 'awaiting_warehouse' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
                               pallet.status === 'in_warehouse' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' :
                               'bg-gray-100 text-gray-700 border border-gray-100'
                             }`}>
-                              {pallet.status === 'produced' ? 'تم الإنتاج' :
-                               pallet.status === 'in_packaging_stock' ? 'في مخزون التغليف' :
-                               pallet.status === 'packaging_in_progress' ? 'قيد التغليف' :
-                               pallet.status === 'packaging_done' ? 'تم التغليف' :
-                               pallet.status === 'packaging_qc_approved' ? 'جاهز للمستودع' :
-                               pallet.status === 'in_warehouse' ? 'في المستودع' : pallet.status}
+                              {pallet.status === 'produced' ? 'تم الإنتاج - بانتظار فحص الجودة' :
+                               pallet.status === 'in_packaging_stock' ? 'مستلم في قسم التغليف' :
+                               pallet.status === 'packaging_in_progress' ? 'جاري عملية التغليف' :
+                               pallet.status === 'packaging_done' ? 'مكتمل التغليف - بانتظار موافقة الجودة' :
+                               pallet.status === 'packaging_qc_approved' ? 'جاهز للنقل للمستودع' :
+                               pallet.status === 'awaiting_quality_officer' ? 'بانتظار توقيع ضابط الجودة' :
+                               pallet.status === 'awaiting_warehouse' ? 'بانتظار توقيع المستودع' :
+                               pallet.status === 'in_warehouse' ? 'تم التخزين في المستودع النهائي' : pallet.status}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-center">
@@ -1007,9 +1115,30 @@ const PackagingDepartment = () => {
                   <input 
                     type="text" 
                     value={certFormData.order_number || ''} 
-                    onChange={e => setCertFormData({...certFormData, order_number: e.target.value})}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    onChange={e => {
+                      const value = e.target.value;
+                      setCertFormData({...certFormData, order_number: value});
+                      if (value.trim() !== '') {
+                        const order = orders.find(o => o.order_number === value.trim());
+                        if (!order) {
+                          setOrderWarning("تحذير: رقم الطلبية غير موجود في النظام");
+                        } else if (order.status === 'completed') {
+                          setOrderWarning("تحذير: هذه الطلبية مكتملة بالفعل");
+                        } else {
+                          setOrderWarning("");
+                        }
+                      } else {
+                        setOrderWarning("");
+                      }
+                    }}
+                    className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-red-500 ${orderWarning ? 'border-orange-500 bg-orange-50' : 'border-gray-300'}`}
                   />
+                  {orderWarning && (
+                    <p className="text-orange-600 text-xs mt-1 font-bold flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {orderWarning}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -1256,12 +1385,33 @@ const PackagingDepartment = () => {
                       <input 
                         type="text" 
                         value={editFormData.certificate_data.order_number || ''} 
-                        onChange={e => setEditFormData({
-                          ...editFormData, 
-                          certificate_data: {...editFormData.certificate_data, order_number: e.target.value}
-                        })}
-                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        onChange={e => {
+                          const value = e.target.value;
+                          setEditFormData({
+                            ...editFormData, 
+                            certificate_data: {...editFormData.certificate_data, order_number: value}
+                          });
+                          if (value.trim() !== '') {
+                            const order = orders.find(o => o.order_number === value.trim());
+                            if (!order) {
+                              setOrderWarning("تحذير: رقم الطلبية غير موجود في النظام");
+                            } else if (order.status === 'completed') {
+                              setOrderWarning("تحذير: هذه الطلبية مكتملة بالفعل");
+                            } else {
+                              setOrderWarning("");
+                            }
+                          } else {
+                            setOrderWarning("");
+                          }
+                        }}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${orderWarning ? 'border-orange-500 bg-orange-50' : ''}`}
                       />
+                      {orderWarning && (
+                        <p className="text-orange-600 text-xs mt-1 font-bold flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {orderWarning}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1324,12 +1474,33 @@ const PackagingDepartment = () => {
                       <input 
                         type="text" 
                         value={editFormData.packaging_certificate_data.order_number || ''} 
-                        onChange={e => setEditFormData({
-                          ...editFormData, 
-                          packaging_certificate_data: {...editFormData.packaging_certificate_data, order_number: e.target.value}
-                        })}
-                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        onChange={e => {
+                          const value = e.target.value;
+                          setEditFormData({
+                            ...editFormData, 
+                            packaging_certificate_data: {...editFormData.packaging_certificate_data, order_number: value}
+                          });
+                          if (value.trim() !== '') {
+                            const order = orders.find(o => o.order_number === value.trim());
+                            if (!order) {
+                              setOrderWarning("تحذير: رقم الطلبية غير موجود في النظام");
+                            } else if (order.status === 'completed') {
+                              setOrderWarning("تحذير: هذه الطلبية مكتملة بالفعل");
+                            } else {
+                              setOrderWarning("");
+                            }
+                          } else {
+                            setOrderWarning("");
+                          }
+                        }}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${orderWarning ? 'border-orange-500 bg-orange-50' : ''}`}
                       />
+                      {orderWarning && (
+                        <p className="text-orange-600 text-xs mt-1 font-bold flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {orderWarning}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1365,238 +1536,158 @@ const PackagingDepartment = () => {
       />
 
       {/* Details Modal */}
-      {showDetailsModal && selectedPallet && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-8 overflow-hidden border border-gray-100"
-          >
-            <div className="bg-gray-50 p-6 border-b flex justify-between items-center">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
-                  <FileText className="w-6 h-6" />
-                </div>
+      <AnimatePresence>
+        {showDetailsModal && selectedPallet && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl my-8 overflow-hidden border border-gray-100"
+            >
+              <div className="bg-gray-50 p-6 border-b flex justify-between items-center sticky top-0 z-10">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">تفاصيل الطبلية</h3>
-                  <p className="text-sm text-gray-500 font-mono">{selectedPallet.id}</p>
+                  <h3 className="text-xl font-bold text-gray-900">تفاصيل الطبلية: {selectedPallet.id}</h3>
+                  <p className="text-sm text-gray-500 mt-1">تاريخ الإنشاء: {new Date(selectedPallet.created_at).toLocaleString('ar-EG')}</p>
                 </div>
+                <button onClick={() => setShowDetailsModal(false)} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
               </div>
-              <button onClick={() => setShowDetailsModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+              
+              <div className="p-6 space-y-10" dir="rtl">
+                {(() => {
+                  let certData: any = selectedPallet.certificate_data;
+                  if (typeof certData === 'string') {
+                    try { certData = JSON.parse(certData); } catch (e) { certData = {}; }
+                  }
+                  
+                  let pkgCertData: any = selectedPallet.packaging_certificate_data;
+                  if (typeof pkgCertData === 'string') {
+                    try { pkgCertData = JSON.parse(pkgCertData); } catch (e) { pkgCertData = null; }
+                  }
 
-            <div className="p-6 space-y-6">
-              {(() => {
-                let certData: any = selectedPallet.certificate_data;
-                if (typeof certData === 'string') {
-                  try { certData = JSON.parse(certData); } catch (e) { certData = null; }
-                }
+                  const renderCert = (cert: any, title: string, type: 'production' | 'packaging') => {
+                    if (!cert || Object.keys(cert).length === 0) return (
+                      <div className="flex-1 min-w-[300px] rounded-2xl border border-dashed border-gray-200 p-8 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50">
+                        <FileX className="w-12 h-12 mb-3 opacity-20" />
+                        <p className="text-sm font-medium">لا توجد بيانات {title}</p>
+                      </div>
+                    );
 
-                let pkgCertData: any = selectedPallet.packaging_certificate_data;
-                if (typeof pkgCertData === 'string') {
-                  try { pkgCertData = JSON.parse(pkgCertData); } catch (e) { pkgCertData = null; }
-                }
+                    const isProduction = type === 'production';
+                    const borderColor = isProduction ? "border-blue-100" : "border-purple-100";
+                    const accentColor = isProduction ? "text-blue-600" : "text-purple-600";
+                    const headerBg = isProduction ? "bg-blue-50/50" : "bg-purple-50/50";
+                    const iconColor = isProduction ? "text-blue-500" : "text-purple-500";
 
-                return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Production Certificate */}
-                    <div className="bg-blue-50/50 p-6 rounded-2xl border border-blue-100">
-                      <h4 className="font-bold text-blue-900 mb-4 flex items-center gap-2 border-b border-blue-200 pb-3">
-                        <Box className="w-5 h-5" />
-                        شهادة الإنتاج
-                      </h4>
-                      {certData ? (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="bg-white p-3 rounded-xl border border-blue-50">
-                              <span className="text-gray-500 block text-xs mb-1">التاريخ</span>
-                              <span className="font-bold text-gray-900">{certData.date || '-'}</span>
+                    const fields = [
+                      { label: "التاريخ", value: cert?.date || "-", icon: Calendar },
+                      { label: "القسم", value: cert?.department || "-", icon: Building2 },
+                      { label: "اسم الصنف", value: cert?.item_name || "-", icon: Tag },
+                      { label: "وزن التعبئة", value: cert?.filling_weight || "-", icon: Weight },
+                      { label: "عدد الكراتين", value: cert?.carton_count || "-", icon: Hash },
+                      { label: "رقم الخلطة", value: cert?.batch_number || "-", icon: Layers },
+                      { label: "تاريخ الإنتاج", value: cert?.production_date || "-", icon: CalendarCheck },
+                      { label: "تاريخ الانتهاء", value: cert?.expiry_date || "-", icon: CalendarX },
+                      { label: "رقم شهادة المطابقة", value: cert?.certificate_number || "-", icon: ShieldCheck },
+                      { label: "الزبون", value: cert?.customer || "-", icon: User },
+                      { label: "البلد", value: cert?.country || "-", icon: Globe },
+                      { label: "رقم الطلبية", value: cert?.order_number || "-", icon: ClipboardList },
+                      { label: "إلى مستودع", value: cert?.warehouse_target || "-", icon: Truck },
+                    ];
+
+                    return (
+                      <div className={`flex-1 min-w-[300px] rounded-2xl border ${borderColor} overflow-hidden shadow-sm bg-white flex flex-col`}>
+                        <div className={`${headerBg} p-4 border-b ${borderColor} flex items-center justify-between`}>
+                          <div className="flex items-center gap-2">
+                            <div className={`p-2 rounded-lg ${isProduction ? 'bg-blue-100' : 'bg-purple-100'}`}>
+                              <FileText className={`w-5 h-5 ${accentColor}`} />
                             </div>
-                            <div className="bg-white p-3 rounded-xl border border-blue-50">
-                              <span className="text-gray-500 block text-xs mb-1">القسم</span>
-                              <span className="font-bold text-gray-900">{certData.department || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-blue-50">
-                              <span className="text-gray-500 block text-xs mb-1">اسم الصنف</span>
-                              <span className="font-bold text-gray-900">{certData.item_name || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-blue-50">
-                              <span className="text-gray-500 block text-xs mb-1">وزن التعبئة</span>
-                              <span className="font-bold text-gray-900">{certData.filling_weight || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-blue-50">
-                              <span className="text-gray-500 block text-xs mb-1">عدد الكراتين</span>
-                              <span className="font-bold text-gray-900">{certData.carton_count || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-blue-50">
-                              <span className="text-gray-500 block text-xs mb-1">رقم الخلطة</span>
-                              <span className="font-bold text-gray-900">{certData.batch_number || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-blue-50">
-                              <span className="text-gray-500 block text-xs mb-1">تاريخ الإنتاج</span>
-                              <span className="font-bold text-gray-900">{certData.production_date || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-blue-50">
-                              <span className="text-gray-500 block text-xs mb-1">تاريخ الانتهاء</span>
-                              <span className="font-bold text-gray-900">{certData.expiry_date || '-'}</span>
-                            </div>
+                            <h4 className={`font-bold ${accentColor}`}>{title}</h4>
                           </div>
-                          
-                          <div className="mt-6 pt-4 border-t border-blue-200">
-                            <h5 className="font-bold text-sm text-blue-900 mb-3">التوقيعات</h5>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {['supervisor', 'qc', 'quality_officer', 'warehouse'].map((role) => {
-                                const val = certData.signatures?.[role];
-                                const labels: Record<string, string> = {
-                                  supervisor: 'المشرف',
-                                  qc: 'مراقب الجودة',
-                                  quality_officer: 'ضابط الجودة',
-                                  warehouse: 'المستودع'
-                                };
-                                const colorClasses: Record<string, any> = {
-                                  supervisor: { bg: 'bg-red-50/50', border: 'border-red-200', text: 'text-red-900', icon: 'text-red-600' },
-                                  qc: { bg: 'bg-blue-50/50', border: 'border-blue-200', text: 'text-blue-900', icon: 'text-blue-600' },
-                                  quality_officer: { bg: 'bg-indigo-50/50', border: 'border-indigo-200', text: 'text-indigo-900', icon: 'text-indigo-600' },
-                                  warehouse: { bg: 'bg-emerald-50/50', border: 'border-emerald-200', text: 'text-emerald-900', icon: 'text-emerald-600' },
-                                };
-                                const colors = colorClasses[role];
-
-                                return (
-                                  <div key={role} className={`p-3 rounded-xl border transition-all ${
-                                    val?.signed 
-                                      ? `${colors.bg} ${colors.border}` 
-                                      : "bg-white border-blue-100 border-dashed"
-                                  }`}>
-                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">{labels[role]}</div>
-                                    {val?.signed ? (
-                                      <div className="flex items-center gap-2">
-                                        <CheckCircle className={`w-4 h-4 ${colors.icon}`} />
-                                        <div className="flex flex-col">
-                                          <span className={`text-sm font-serif italic ${colors.text}`}>{val.name}</span>
-                                          <span className="text-[9px] text-gray-500">{new Date(val.date).toLocaleDateString('ar-EG')}</span>
-                                        </div>
-                                      </div>
-                                    ) : (
-                                      <span className="text-xs text-gray-400 italic">بانتظار التوقيع...</span>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
+                          <span className="text-[10px] font-mono text-gray-400 bg-white/50 px-2 py-1 rounded border border-gray-100 uppercase">
+                            {type}
+                          </span>
                         </div>
-                      ) : (
-                        <p className="text-gray-500 text-center py-8 italic">لا توجد بيانات لشهادة الإنتاج</p>
-                      )}
-                    </div>
-
-                    {/* Packaging Certificate */}
-                    <div className="bg-purple-50/50 p-6 rounded-2xl border border-purple-100">
-                      <h4 className="font-bold text-purple-900 mb-4 flex items-center gap-2 border-b border-purple-200 pb-3">
-                        <Package className="w-5 h-5" />
-                        شهادة التغليف
-                      </h4>
-                      {pkgCertData ? (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">التاريخ</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.date || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">القسم</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.department || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">اسم الصنف</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.item_name || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">وزن التعبئة</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.filling_weight || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">عدد الكراتين</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.carton_count || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">رقم الخلطة</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.batch_number || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">تاريخ الإنتاج</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.production_date || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">تاريخ الانتهاء</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.expiry_date || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">رقم شهادة المطابقة</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.certificate_number || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">المستودع المستهدف</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.warehouse_target || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">الزبون</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.customer || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">البلد</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.country || '-'}</span>
-                            </div>
-                            <div className="bg-white p-3 rounded-xl border border-purple-50">
-                              <span className="text-gray-500 block text-xs mb-1">رقم الطلبية</span>
-                              <span className="font-bold text-gray-900">{pkgCertData.order_number || '-'}</span>
-                            </div>
-                            {pkgCertData.notes && (
-                              <div className="col-span-2 bg-white p-3 rounded-xl border border-purple-50">
-                                <span className="text-gray-500 block text-xs mb-1">ملاحظات</span>
-                                <span className="font-bold text-gray-900">{pkgCertData.notes}</span>
+                        
+                        <div className="p-5 space-y-6 flex-1">
+                          <div className="grid grid-cols-1 gap-y-3">
+                            {fields.map((field, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-sm group">
+                                <div className="flex items-center gap-2 text-gray-500">
+                                  <field.icon className="w-4 h-4 opacity-40 group-hover:opacity-100 transition-opacity" />
+                                  <span>{field.label}:</span>
+                                </div>
+                                <span className="font-semibold text-gray-900">{field.value}</span>
                               </div>
-                            )}
+                            ))}
                           </div>
                           
-                          <div className="mt-6 pt-4 border-t border-purple-200">
-                            <h5 className="font-bold text-sm text-purple-900 mb-3">التوقيعات</h5>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {['supervisor', 'qc', 'quality_officer', 'warehouse'].map((role) => {
-                                const val = pkgCertData.signatures?.[role];
-                                const labels: Record<string, string> = {
-                                  supervisor: 'مشرفة التغليف',
-                                  qc: 'مراقب الجودة',
-                                  quality_officer: 'ضابط الجودة',
-                                  warehouse: 'المستودع'
-                                };
-                                const colorClasses: Record<string, any> = {
-                                  supervisor: { bg: 'bg-purple-50/50', border: 'border-purple-200', text: 'text-purple-900', icon: 'text-purple-600' },
-                                  qc: { bg: 'bg-blue-50/50', border: 'border-blue-200', text: 'text-blue-900', icon: 'text-blue-600' },
-                                  quality_officer: { bg: 'bg-indigo-50/50', border: 'border-indigo-200', text: 'text-indigo-900', icon: 'text-indigo-600' },
-                                  warehouse: { bg: 'bg-emerald-50/50', border: 'border-emerald-200', text: 'text-emerald-900', icon: 'text-emerald-600' },
-                                };
-                                const colors = colorClasses[role];
+                          {cert?.notes && (
+                            <div className="p-3 bg-gray-50 rounded-xl border border-gray-100 relative overflow-hidden">
+                              <div className={`absolute top-0 right-0 w-1 h-full ${isProduction ? 'bg-blue-200' : 'bg-purple-200'}`} />
+                              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block mb-1">ملاحظات إضافية</span>
+                              <p className="text-xs text-gray-600 leading-relaxed">{cert.notes}</p>
+                            </div>
+                          )}
+
+                          <div className="pt-4 border-t border-gray-100">
+                            <div className="flex items-center gap-2 mb-4">
+                              <ShieldCheck className={`w-4 h-4 ${iconColor}`} />
+                              <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider">الاعتمادات الرسمية</h5>
+                            </div>
+                            
+                            <div className="grid gap-3">
+                              {(isProduction ? ['supervisor', 'qc'] : ['supervisor', 'qc', 'quality_officer', 'warehouse']).map((role) => {
+                                const sig = cert?.signatures?.[role];
+                                const roleLabel = 
+                                  role === 'supervisor' ? (isProduction ? 'مشرف الإنتاج' : 'مشرف التغليف') :
+                                  role === 'qc' ? 'مراقب الجودة' :
+                                  role === 'quality_officer' ? 'ضابط الجودة' :
+                                  role === 'warehouse' ? 'أمين المستودع' : role;
 
                                 return (
-                                  <div key={role} className={`p-3 rounded-xl border transition-all ${
-                                    val?.signed 
-                                      ? `${colors.bg} ${colors.border}` 
-                                      : "bg-white border-purple-100 border-dashed"
-                                  }`}>
-                                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-500 mb-1">{labels[role]}</div>
-                                    {val?.signed ? (
-                                      <div className="flex items-center gap-2">
-                                        <CheckCircle className={`w-4 h-4 ${colors.icon}`} />
-                                        <div className="flex flex-col">
-                                          <span className={`text-sm font-serif italic ${colors.text}`}>{val.name}</span>
-                                          <span className="text-[9px] text-gray-500">{new Date(val.date).toLocaleDateString('ar-EG')}</span>
-                                        </div>
+                                  <div 
+                                    key={role} 
+                                    className={`group relative p-3 rounded-xl border transition-all duration-300 ${
+                                      sig?.signed 
+                                        ? 'bg-green-50/30 border-green-100 shadow-sm' 
+                                        : 'bg-gray-50/50 border-gray-100 border-dashed'
+                                    }`}
+                                  >
+                                    <div className="flex justify-between items-center">
+                                      <div className="flex flex-col">
+                                        <span className={`text-[10px] font-bold uppercase tracking-tighter ${sig?.signed ? 'text-green-600' : 'text-gray-400'}`}>
+                                          {roleLabel}
+                                        </span>
+                                        {sig?.signed ? (
+                                          <span className="text-sm font-serif italic text-gray-900 mt-0.5">{sig.name}</span>
+                                        ) : (
+                                          <span className="text-xs text-gray-300 italic mt-0.5">بانتظار التوقيع...</span>
+                                        )}
                                       </div>
-                                    ) : (
-                                      <span className="text-xs text-gray-400 italic">بانتظار التوقيع...</span>
+                                      
+                                      {sig?.signed ? (
+                                        <div className="flex flex-col items-end">
+                                          <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 shadow-inner">
+                                            <CheckCircle className="w-5 h-5" />
+                                          </div>
+                                          <span className="text-[9px] text-gray-400 mt-1 font-mono">
+                                            {new Date(sig.date).toLocaleDateString('ar-EG')}
+                                          </span>
+                                        </div>
+                                      ) : (
+                                        <div className="w-8 h-8 rounded-full border border-dashed border-gray-200 flex items-center justify-center text-gray-200">
+                                          <Clock className="w-4 h-4" />
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {sig?.signed && (
+                                      <div className="absolute -right-2 -bottom-2 opacity-[0.03] group-hover:opacity-[0.06] transition-opacity pointer-events-none">
+                                        <ShieldCheck className="w-16 h-16 text-green-900" />
+                                      </div>
                                     )}
                                   </div>
                                 );
@@ -1604,26 +1695,93 @@ const PackagingDepartment = () => {
                             </div>
                           </div>
                         </div>
-                      ) : (
-                        <p className="text-gray-500 text-center py-8 italic">لا توجد بيانات لشهادة التغليف</p>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+                      </div>
+                    );
+                  };
 
-            <div className="p-6 border-t bg-gray-50 flex justify-end">
-              <button 
-                onClick={() => setShowDetailsModal(false)}
-                className="px-6 py-2 bg-white border border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition-colors"
-              >
-                إغلاق
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+                  return (
+                    <div className="space-y-10">
+                      {/* Status Timeline */}
+                      <div className="relative px-4">
+                        <div className="absolute top-1/2 left-0 right-0 h-1 bg-gray-100 -translate-y-1/2 rounded-full overflow-hidden">
+                          <motion.div 
+                            initial={{ width: 0 }}
+                            animate={{ 
+                              width: selectedPallet.status === 'in_warehouse' ? '100%' : 
+                                     selectedPallet.status.includes('packaging') ? '50%' : '0%' 
+                            }}
+                            className="h-full bg-blue-500 transition-all duration-1000 ease-out"
+                          />
+                        </div>
+                        
+                        <div className="flex justify-between relative z-10">
+                          {[
+                            { status: 'produced', label: 'مرحلة الإنتاج', icon: Package },
+                            { status: 'packaging', label: 'مرحلة التغليف', icon: Package },
+                            { status: 'warehouse', label: 'المستودع النهائي', icon: Truck }
+                          ].map((step, idx) => {
+                            const isCompleted = 
+                              (selectedPallet.status === 'produced' && idx === 0) ||
+                              (selectedPallet.status.includes('packaging') && idx <= 1) ||
+                              (selectedPallet.status === 'in_warehouse' && idx <= 2);
+                            
+                            const isCurrent = 
+                              (selectedPallet.status === 'produced' && idx === 0) ||
+                              (selectedPallet.status.includes('packaging') && idx === 1) ||
+                              (selectedPallet.status === 'in_warehouse' && idx === 2);
+
+                            return (
+                              <div key={step.status} className="flex flex-col items-center group">
+                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border-2 transition-all duration-500 ${
+                                  isCompleted 
+                                    ? isCurrent ? 'bg-blue-600 border-blue-600 text-white shadow-xl scale-110' : 'bg-white border-blue-500 text-blue-500'
+                                    : 'bg-white border-gray-200 text-gray-300'
+                                }`}>
+                                  <step.icon className="w-6 h-6" />
+                                  {isCompleted && !isCurrent && (
+                                    <div className="absolute -top-1 -right-1 bg-blue-500 text-white rounded-full p-0.5 border-2 border-white">
+                                      <CheckCircle className="w-3 h-3" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="mt-3 text-center">
+                                  <span className={`text-xs font-black uppercase tracking-widest block ${isCompleted ? 'text-gray-900' : 'text-gray-400'}`}>
+                                    {step.label}
+                                  </span>
+                                  {isCurrent && (
+                                    <motion.span 
+                                      layoutId="current-indicator"
+                                      className="inline-block w-1 h-1 rounded-full bg-blue-600 mt-1"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col lg:flex-row gap-8">
+                        {renderCert(certData, "شهادة الإنتاج", "production")}
+                        {renderCert(pkgCertData, "شهادة التغليف", "packaging")}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="p-6 border-t bg-gray-50 flex justify-end">
+                <button 
+                  onClick={() => setShowDetailsModal(false)}
+                  className="px-6 py-2 bg-white border border-gray-300 rounded-xl font-bold hover:bg-gray-50 transition-colors"
+                >
+                  إغلاق
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

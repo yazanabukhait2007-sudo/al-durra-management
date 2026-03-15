@@ -8,6 +8,7 @@ import { fetchWithAuth } from "../utils/api";
 
 const AVAILABLE_PERMISSIONS = [
   { id: "view_dashboard", label: "عرض لوحة القيادة والإحصائيات", category: "عام" },
+  { id: "view_orders", label: "عرض وإدارة الطلبيات", category: "عام" },
   { id: "view_reports", label: "عرض التقارير وتصديرها", category: "عام" },
   { id: "view_audit_logs", label: "عرض سجل النشاطات (Audit Logs)", category: "عام" },
   { id: "manage_users", label: "إدارة المستخدمين والصلاحيات", category: "عام" },

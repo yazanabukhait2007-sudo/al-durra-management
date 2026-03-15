@@ -19,6 +19,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigation: { name: string; href: string; icon: any; permission?: string; role?: string }[] = [
     { name: "الرئيسية", href: "/", icon: LayoutDashboard, permission: "view_dashboard" },
     { name: "لوحة التحكم", href: "/worker-dashboard", icon: LayoutDashboard, role: "worker" },
+    { name: "الطلبيات", href: "/orders", icon: FileText, permission: "view_orders" },
     { name: "العمال", href: "/workers", icon: Users, permission: "view_workers" },
     { name: "الأعمال (المهام)", href: "/tasks", icon: ClipboardList, permission: "view_tasks" },
     { name: "قسم الإنتاج (بندورة)", href: "/production/tomato", icon: Package, permission: "view_production_tomato" },

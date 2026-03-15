@@ -1,3 +1,16 @@
+export interface Order {
+  id: number;
+  zone_name: string;
+  country: string;
+  item_name: string;
+  quantity: number;
+  weight: number;
+  order_number: string;
+  general_specs: string;
+  status: string;
+  created_at: string;
+}
+
 export interface User {
   id: number;
   username?: string;

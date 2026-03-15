@@ -34,6 +34,8 @@ import WarehousePage from "./pages/WarehousePage";
 import WorkerDashboard from "./pages/WorkerDashboard";
 
 // مكون حماية المسارات: يتحقق من تسجيل الدخول والصلاحيات قبل عرض الصفحة
+import Orders from "./pages/Orders";
+
 function ProtectedRoute({ children, permission, role }: { children: React.ReactNode, permission?: string, role?: string }) {
   const { user, loading, logout } = useAuth();
   const location = useLocation();
@@ -115,6 +117,11 @@ function AnimatedRoutes() {
             user?.role === 'worker' ? <Navigate to="/worker-dashboard" replace /> :
             <ProtectedRoute permission="view_dashboard">
               <Layout><Dashboard /></Layout>
+            </ProtectedRoute>
+          } />
+          <Route path="/orders" element={
+            <ProtectedRoute permission="view_orders">
+              <Layout><Orders /></Layout>
             </ProtectedRoute>
           } />
           <Route path="/workers" element={

@@ -32,9 +32,30 @@ const Laboratory = () => {
   const [error, setError] = useState("");
   const [deleteModal, setDeleteModal] = useState<{isOpen: boolean, id: string | null}>({ isOpen: false, id: null });
 
+  const userRole = localStorage.getItem("user_role");
   const userPermissions = JSON.parse(localStorage.getItem("user_permissions") || "[]");
+  
+  // توسيع نطاق البحث ليشمل أي دور يحتوي على كلمات دالة على الجودة أو المختبر
+  const roleString = (userRole || '').toLowerCase();
+  const permissionsString = JSON.stringify(userPermissions).toLowerCase();
+  
+  const isLab = roleString.includes('lab') || 
+                roleString.includes('qc') || 
+                roleString.includes('quality') || 
+                roleString.includes('مختبر') || 
+                roleString.includes('جودة') ||
+                permissionsString.includes('quality') ||
+                permissionsString.includes('qc') ||
+                userPermissions.includes('lab') ||
+                userPermissions.includes('qc');
+  
+  const isQualityOfficer = roleString.includes('quality_officer') || 
+                           roleString.includes('ضابط') ||
+                           userPermissions.includes('quality_officer');
+  
   const canEdit = localStorage.getItem("user_role") === "admin" || userPermissions.includes("edit_production");
   const canDelete = localStorage.getItem("user_role") === "admin" || userPermissions.includes("delete_production");
+  const canEditCertificate = canEdit || isLab || isQualityOfficer;
 
   useEffect(() => {
     loadPallets();
@@ -217,18 +238,10 @@ const Laboratory = () => {
 
         if (!res.ok) throw new Error("فشل في توقيع الشهادة");
 
-        // If Ketchup and Quality Officer signed, send to warehouse automatically
-        if (pallet.type === 'ketchup' && role === 'quality_officer') {
+        // If Quality Officer signed and it's Ketchup or awaiting quality officer, send to warehouse automatically
+        if (role === 'quality_officer' && (pallet.type === 'ketchup' || pallet.status === 'awaiting_quality_officer')) {
           try {
-            await fetchWithAuth("/api/warehouse/transfer", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                pallet_id: pallet.id,
-                location: "warehouse"
-              }),
-            });
-
+            // Create warehouse request
             await fetchWithAuth("/api/warehouse/requests", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -238,9 +251,7 @@ const Laboratory = () => {
               }),
             });
 
-            // Update status to awaiting_warehouse (or in_warehouse depending on logic, but warehouse needs to sign)
-            // Actually warehouse request 'pending' implies waiting for warehouse.
-            // But let's update pallet status to be clear.
+            // Update status to awaiting_warehouse
             await fetchWithAuth(`/api/production/pallets/${pallet.id}`, {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
@@ -294,7 +305,7 @@ const Laboratory = () => {
              try { prodCertData = JSON.parse(prodCertData); } catch (e) { prodCertData = {}; }
           }
           
-          if (prodCertData && !prodCertData.signatures?.quality_officer?.signed) {
+          if (pallet.id.startsWith('TOM-') === false && prodCertData && !prodCertData.signatures?.quality_officer?.signed) {
              updatedProductionCert = {
                ...prodCertData,
                signatures: {
@@ -417,14 +428,12 @@ const Laboratory = () => {
                       >
                         تفاصيل
                       </button>
-                      {canEdit && (
-                        <button 
-                          onClick={() => handleEditClick(pallet)}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                        >
-                          تعديل
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => handleEditClick(pallet)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        تعديل
+                      </button>
                       {canDelete && (
                         <button 
                           onClick={() => handleDeleteClick(pallet.id)}
@@ -471,6 +480,12 @@ const Laboratory = () => {
                         className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                       >
                         تفاصيل
+                      </button>
+                      <button 
+                        onClick={() => handleEditClick(pallet)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        تعديل
                       </button>
                       {canDelete && (
                         <button 
@@ -522,14 +537,12 @@ const Laboratory = () => {
                       >
                         تفاصيل
                       </button>
-                      {canEdit && (
-                        <button 
-                          onClick={() => handleEditClick(pallet)}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                        >
-                          تعديل
-                        </button>
-                      )}
+                      <button 
+                        onClick={() => handleEditClick(pallet)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        تعديل
+                      </button>
                       {canDelete && (
                         <button 
                           onClick={() => handleDeleteClick(pallet.id)}
@@ -576,6 +589,12 @@ const Laboratory = () => {
                         className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                       >
                         تفاصيل
+                      </button>
+                      <button 
+                        onClick={() => handleEditClick(pallet)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      >
+                        تعديل
                       </button>
                       {canDelete && (
                         <button 
@@ -625,6 +644,7 @@ const Laboratory = () => {
                 <input 
                   type="text" 
                   value={editFormData.item_name || ''} 
+                  disabled={true}
                   onChange={e => setEditFormData({...editFormData, item_name: e.target.value})}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -634,6 +654,7 @@ const Laboratory = () => {
                 <input 
                   type="text" 
                   value={editFormData.filling_weight || ''} 
+                  disabled={true}
                   onChange={e => setEditFormData({...editFormData, filling_weight: e.target.value})}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -643,6 +664,7 @@ const Laboratory = () => {
                 <input 
                   type="number" 
                   value={editFormData.carton_count || ''} 
+                  disabled={true}
                   onChange={e => setEditFormData({...editFormData, carton_count: e.target.value})}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -652,6 +674,7 @@ const Laboratory = () => {
                 <input 
                   type="text" 
                   value={editFormData.batch_number || ''} 
+                  disabled={true}
                   onChange={e => setEditFormData({...editFormData, batch_number: e.target.value})}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -660,6 +683,7 @@ const Laboratory = () => {
                 <CustomDatePicker
                   label="تاريخ الإنتاج"
                   value={editFormData.production_date}
+                  disabled={true}
                   onChange={(date) => setEditFormData({...editFormData, production_date: date})}
                 />
               </div>
@@ -667,6 +691,7 @@ const Laboratory = () => {
                 <CustomDatePicker
                   label="تاريخ الانتهاء"
                   value={editFormData.expiry_date}
+                  disabled={true}
                   onChange={(date) => setEditFormData({...editFormData, expiry_date: date})}
                 />
               </div>
@@ -684,6 +709,7 @@ const Laboratory = () => {
                 <input 
                   type="text" 
                   value={editFormData.customer || ''} 
+                  disabled={true}
                   onChange={e => setEditFormData({...editFormData, customer: e.target.value})}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -693,6 +719,7 @@ const Laboratory = () => {
                 <input 
                   type="text" 
                   value={editFormData.country || ''} 
+                  disabled={true}
                   onChange={e => setEditFormData({...editFormData, country: e.target.value})}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -702,6 +729,7 @@ const Laboratory = () => {
                 <input 
                   type="text" 
                   value={editFormData.order_number || ''} 
+                  disabled={true}
                   onChange={e => setEditFormData({...editFormData, order_number: e.target.value})}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -711,6 +739,7 @@ const Laboratory = () => {
                 <input 
                   type="text" 
                   value={editFormData.warehouse_target || ''} 
+                  disabled={true}
                   onChange={e => setEditFormData({...editFormData, warehouse_target: e.target.value})}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                 />
@@ -719,6 +748,7 @@ const Laboratory = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">الملاحظات</label>
                 <textarea 
                   value={editFormData.notes || ''} 
+                  disabled={true}
                   onChange={e => setEditFormData({...editFormData, notes: e.target.value})}
                   rows={3}
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -902,7 +932,9 @@ const Laboratory = () => {
                           <div className="mt-6 pt-4 border-t border-blue-200">
                             <h5 className="font-bold text-sm text-blue-900 mb-3">التوقيعات</h5>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              {['supervisor', 'qc', 'quality_officer', 'warehouse'].map((role) => {
+                              {['supervisor', 'qc', 'quality_officer', 'warehouse']
+                                .filter(role => selectedPallet.id.startsWith('TOM-') ? ['supervisor', 'qc'].includes(role) : true)
+                                .map((role) => {
                                 const val = certData.signatures?.[role];
                                 const labels: Record<string, string> = {
                                   supervisor: 'المشرف',

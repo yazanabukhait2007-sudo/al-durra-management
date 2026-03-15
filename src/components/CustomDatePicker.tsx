@@ -10,9 +10,10 @@ interface CustomDatePickerProps {
   value: string;
   onChange: (date: string) => void;
   placeholder?: string;
+  disabled?: boolean;
 }
 
-const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ label, value, onChange, placeholder = "اختر التاريخ" }) => {
+const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ label, value, onChange, placeholder = "اختر التاريخ", disabled = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,8 +95,8 @@ const CustomDatePicker: React.FC<CustomDatePickerProps> = ({ label, value, onCha
     <div className="relative" ref={containerRef}>
       <label className="block text-sm font-medium text-gray-700 mb-1 text-right">{label}</label>
       <div 
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-white flex items-center justify-between hover:border-red-500 transition-all cursor-pointer group"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={`relative w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-white flex items-center justify-between transition-all cursor-pointer group ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:border-red-500'}`}
       >
         <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         <div className="flex items-center gap-2">

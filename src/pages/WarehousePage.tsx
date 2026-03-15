@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Warehouse, Package, Box, ArrowDownCircle, CheckCircle, Truck, ClipboardCheck, Barcode, X, Calendar as CalendarIcon, FileText, ChevronDown, ShieldCheck, Edit2, Trash2 } from "lucide-react";
+import { Warehouse, Package, Box, ArrowDownCircle, CheckCircle, Truck, ClipboardCheck, Barcode, X, Calendar as CalendarIcon, FileText, ChevronDown, ShieldCheck, Edit2, Trash2, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Calendar from "react-calendar";
 import "react-calendar/dist/Calendar.css";
@@ -19,6 +19,7 @@ const WarehousePage = () => {
   const [requests, setRequests] = useState<any[]>([]);
   const [pallets, setPallets] = useState<any[]>([]);
   const [selectedDetails, setSelectedDetails] = useState<any>(null);
+  const [expandedItemName, setExpandedItemName] = useState<string | null>(null);
   const { showToast } = useToast();
 
   // Edit/Delete State
@@ -28,6 +29,8 @@ const WarehousePage = () => {
     isOpen: false,
     id: null
   });
+  const [orders, setOrders] = useState<any[]>([]);
+  const [orderWarning, setOrderWarning] = useState("");
 
   // Permissions
   const userPermissions = JSON.parse(localStorage.getItem('user_permissions') || '[]');
@@ -39,7 +42,23 @@ const WarehousePage = () => {
       const res = await fetchWithAuth("/api/warehouse/requests");
       if (res.ok) {
         const data = await res.json();
-        setRequests(data);
+        // Filter: Packaging pallets must be signed by Quality Officer
+        const filteredData = data.filter((req: any) => {
+          let packagingCert: any = null;
+          try {
+            if (req.packaging_certificate_data) {
+              packagingCert = typeof req.packaging_certificate_data === 'string' 
+                ? JSON.parse(req.packaging_certificate_data) 
+                : req.packaging_certificate_data;
+            }
+          } catch (e) {}
+
+          if (packagingCert) {
+            return packagingCert.signatures?.quality_officer?.signed;
+          }
+          return true; // Production pallets show as before
+        });
+        setRequests(filteredData);
       }
     } catch (err) {
       console.error("فشل في تحميل الطلبات", err);
@@ -51,7 +70,29 @@ const WarehousePage = () => {
       const res = await fetchWithAuth("/api/warehouse/stock");
       if (res.ok) {
         const data = await res.json();
-        setPallets(data);
+        // Filter: Pallets must be signed by Warehouse to appear in inventory
+        const filteredData = data.filter((pallet: any) => {
+          let productionCert: any = null;
+          let packagingCert: any = null;
+          try {
+            if (pallet.certificate_data) {
+              productionCert = typeof pallet.certificate_data === 'string' 
+                ? JSON.parse(pallet.certificate_data) 
+                : pallet.certificate_data;
+            }
+          } catch (e) {}
+          try {
+            if (pallet.packaging_certificate_data) {
+              packagingCert = typeof pallet.packaging_certificate_data === 'string' 
+                ? JSON.parse(pallet.packaging_certificate_data) 
+                : pallet.packaging_certificate_data;
+            }
+          } catch (e) {}
+
+          const cert = packagingCert || productionCert;
+          return cert?.signatures?.warehouse?.signed;
+        });
+        setPallets(filteredData);
       }
     } catch (err) {
       console.error("فشل في تحميل الطبالي", err);
@@ -66,11 +107,25 @@ const WarehousePage = () => {
     }
   }, [activeInternalTab]);
 
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const res = await fetchWithAuth("/api/orders");
+      const data = await res.json();
+      setOrders(data);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    }
+  };
+
   const translateLocation = (loc: string) => {
     switch(loc) {
       case 'internal_production': return 'قسم الإنتاج';
-      case 'internal_raw_materials': return 'مواد خام';
-      case 'external': return 'مستودع خارجي';
+      case 'internal_raw_materials': return 'مواد اولية';
+      case 'external': return 'التصدير';
       default: return loc;
     }
   };
@@ -163,20 +218,39 @@ const WarehousePage = () => {
       pallet_id: pallet.pallet_id,
       details: pallet.details,
       type: pallet.type,
+      status: pallet.status,
       certificate_data: typeof pallet.certificate_data === 'string' ? JSON.parse(pallet.certificate_data) : pallet.certificate_data,
       packaging_certificate_data: typeof pallet.packaging_certificate_data === 'string' ? JSON.parse(pallet.packaging_certificate_data) : pallet.packaging_certificate_data
     });
     setShowEditModal(true);
+
+    const certDataObj = typeof pallet.certificate_data === 'string' ? JSON.parse(pallet.certificate_data) : pallet.certificate_data;
+    const pkgCertDataObj = typeof pallet.packaging_certificate_data === 'string' ? JSON.parse(pallet.packaging_certificate_data) : pallet.packaging_certificate_data;
+    const orderNumber = certDataObj?.order_number || pkgCertDataObj?.order_number;
+    
+    if (orderNumber && orderNumber.trim() !== '') {
+      const order = orders.find(o => o.order_number === orderNumber.trim());
+      if (!order) {
+        setOrderWarning("تحذير: رقم الطلبية غير موجود في النظام");
+      } else if (order.status === 'completed') {
+        setOrderWarning("تحذير: هذه الطلبية مكتملة بالفعل");
+      } else {
+        setOrderWarning("");
+      }
+    } else {
+      setOrderWarning("");
+    }
   };
 
   const handleUpdatePallet = async () => {
     try {
-      const res = await fetchWithAuth(`/api/production/pallets/${editFormData.id}`, {
+      const res = await fetchWithAuth(`/api/production/pallets/${editFormData.pallet_id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           details: editFormData.details,
           type: editFormData.type,
+          status: editFormData.status,
           certificate_data: editFormData.certificate_data,
           packaging_certificate_data: editFormData.packaging_certificate_data
         })
@@ -250,7 +324,7 @@ const WarehousePage = () => {
               : 'text-gray-500 hover:text-gray-700'
           }`}
         >
-          المستودع الخارجي
+          التصدير
         </button>
       </div>
 
@@ -302,11 +376,11 @@ const WarehousePage = () => {
                     </button>
                   </div>
                   
-                  {pallets.length === 0 ? (
+                  {pallets.filter(p => p.location === 'internal_production').length === 0 ? (
                     <div className="text-gray-500 py-10">لا توجد طبالي في قسم الإنتاج</div>
                   ) : (
                     <div className="space-y-4">
-                      {Object.entries(pallets.reduce((acc: any, pallet: any) => {
+                      {Object.entries(pallets.filter(p => p.location === 'internal_production').reduce((acc: any, pallet: any) => {
                         let productionCert: any = null;
                         let packagingCert: any = null;
                         try {
@@ -330,7 +404,7 @@ const WarehousePage = () => {
                       }, {})).map(([itemName, items]: [string, any]) => (
                         <div key={itemName} className="border border-gray-200 rounded-xl overflow-hidden">
                           <button 
-                            onClick={() => setSelectedDetails(selectedDetails?.itemName === itemName ? null : { itemName, items })}
+                            onClick={() => setExpandedItemName(expandedItemName === itemName ? null : itemName)}
                             className="w-full flex items-center justify-between p-4 bg-gray-50 hover:bg-gray-100 transition-colors"
                           >
                             <div className="flex items-center gap-3">
@@ -338,33 +412,39 @@ const WarehousePage = () => {
                               <span className="font-bold text-gray-900">{itemName}</span>
                               <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded-full">{items.length} طبلية</span>
                             </div>
-                            <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${selectedDetails?.itemName === itemName ? 'rotate-180' : ''}`} />
+                            <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${expandedItemName === itemName ? 'rotate-180' : ''}`} />
                           </button>
                           
-                          {selectedDetails?.itemName === itemName && (
+                          {expandedItemName === itemName && (
                             <div className="p-4 bg-white border-t border-gray-100">
                               <table className="w-full text-right border-collapse">
                                 <thead>
-                                  <tr className="text-gray-600 text-xs uppercase tracking-wider">
-                                    <th className="p-2">كود الطبلية</th>
-                                    <th className="p-2">تاريخ الإنتاج</th>
-                                    <th className="p-2">الحالة</th>
-                                    <th className="p-2">الإجراءات</th>
+                                  <tr className="text-gray-600 text-xs uppercase tracking-wider bg-gray-50/50">
+                                    <th className="p-3 font-bold border-b">كود الطبلية</th>
+                                    <th className="p-3 font-bold border-b text-center">الكمية (كرتون)</th>
+                                    <th className="p-3 font-bold border-b">تاريخ الإنتاج</th>
+                                    <th className="p-3 font-bold border-b">تاريخ الانتهاء</th>
+                                    <th className="p-3 font-bold border-b">الحالة</th>
+                                    <th className="p-3 font-bold border-b">الإجراءات</th>
                                   </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-50">
                                   {items.map((pallet: any) => (
-                                    <tr key={pallet.id}>
-                                      <td className="p-2 font-mono text-sm font-bold text-blue-600">{pallet.pallet_id}</td>
-                                      <td className="p-2 text-sm text-gray-600">{pallet._details.production_date || new Date(pallet.added_at).toLocaleDateString('ar-EG')}</td>
-                                      <td className="p-2">
+                                    <tr key={pallet.pallet_id} className="hover:bg-gray-50 transition-colors">
+                                      <td className="p-3 font-mono text-sm font-bold text-blue-600">{pallet.pallet_id}</td>
+                                      <td className="p-3 text-sm text-gray-700 font-bold text-center">
+                                        <span className="bg-gray-100 px-2 py-1 rounded-lg">{pallet._details.carton_count || '-'}</span>
+                                      </td>
+                                      <td className="p-3 text-sm text-gray-600">{pallet._details.production_date || new Date(pallet.added_at).toLocaleDateString('ar-EG')}</td>
+                                      <td className="p-3 text-sm text-gray-600">{pallet._details.expiry_date || '-'}</td>
+                                      <td className="p-3">
                                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
                                           pallet.location === 'internal_production' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
                                         }`}>
                                           {translateLocation(pallet.location)}
                                         </span>
                                       </td>
-                                      <td className="p-2">
+                                      <td className="p-3">
                                         <div className="flex items-center gap-2">
                                           <button onClick={() => setSelectedDetails({ ...pallet._details, _pallet_id: pallet.pallet_id, _is_packaging: !!pallet._packagingCert, _show_modal: true })} className="text-blue-600 hover:text-blue-800 font-bold text-xs flex items-center gap-1">
                                             <FileText className="w-3 h-3" />
@@ -383,7 +463,7 @@ const WarehousePage = () => {
 
                                           {canDelete && (
                                             <button 
-                                              onClick={() => handleDeleteClick(pallet.id)}
+                                              onClick={() => handleDeleteClick(pallet.pallet_id)}
                                               className="text-red-600 hover:text-red-800 font-bold text-xs flex items-center gap-1"
                                             >
                                               <Trash2 className="w-3 h-3" />
@@ -441,7 +521,8 @@ const WarehousePage = () => {
                             const details = {
                               ...mainCert,
                               _productionCert: productionCert,
-                              _packagingCert: packagingCert
+                              _packagingCert: packagingCert,
+                              _type: req.pallet_id.startsWith('TOM-') ? 'tomato' : 'ketchup'
                             };
                             const isPackaging = !!packagingCert;
 
@@ -462,10 +543,11 @@ const WarehousePage = () => {
                                 {req.status === 'pending' && (
                                   <button 
                                     onClick={async () => {
+                                      const currentCert = isPackaging ? packagingCert : productionCert;
                                       const updatedCertData = {
-                                        ...(certData || {}),
+                                        ...(currentCert || {}),
                                         signatures: {
-                                          ...(certData?.signatures || {}),
+                                          ...(currentCert?.signatures || {}),
                                           warehouse: {
                                             signed: true,
                                             name: "مسؤول المستودع",
@@ -591,7 +673,9 @@ const WarehousePage = () => {
                                 <div className="mt-6 pt-4 border-t border-blue-200">
                                   <h5 className="font-bold text-sm text-blue-900 mb-3">التوقيعات</h5>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {['supervisor', 'qc', 'quality_officer', 'warehouse'].map((role) => {
+                                    {['supervisor', 'qc', 'quality_officer', 'warehouse']
+                                      .filter(role => selectedDetails._type === 'tomato' ? ['supervisor', 'qc'].includes(role) : true)
+                                      .map((role) => {
                                       const val = selectedDetails._productionCert.signatures?.[role];
                                       const labels: Record<string, string> = {
                                         supervisor: 'المشرف',
@@ -709,7 +793,7 @@ const WarehousePage = () => {
                                   <h5 className="font-bold text-sm text-purple-900 mb-3">التوقيعات</h5>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {['supervisor', 'qc', 'quality_officer', 'warehouse'].map((role) => {
-                                      const val = selectedDetails._packagingCert.signatures?.[role];
+                                      const val = selectedDetails._packagingCert.signatures?.[role] || selectedDetails._productionCert?.signatures?.[role];
                                       const labels: Record<string, string> = {
                                         supervisor: 'مشرفة التغليف',
                                         qc: 'مراقب الجودة',
@@ -828,6 +912,16 @@ const WarehousePage = () => {
                                       body: JSON.stringify(body)
                                     });
 
+                                    // Add to warehouse stock
+                                    await fetchWithAuth("/api/warehouse/transfer", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        pallet_id: selectedDetails._pallet_id,
+                                        location: "internal_production"
+                                      })
+                                    });
+
                                     // Update request status
                                     await fetchWithAuth(`/api/warehouse/requests/${req.id}`, {
                                       method: 'PUT',
@@ -836,6 +930,7 @@ const WarehousePage = () => {
                                     });
                                     
                                     await loadRequests();
+                                    await loadPallets();
                                     // Update local state to reflect the signature immediately
                                     const newDetails = {
                                       ...selectedDetails,
@@ -884,7 +979,7 @@ const WarehousePage = () => {
         ) : (
           <div className="text-center py-20">
             <Warehouse className="w-16 h-16 text-blue-200 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">المستودع الخارجي</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">التصدير</h2>
             <p className="text-gray-500">إدارة المخزون الخارجي والشحن.</p>
           </div>
         )}
@@ -1153,7 +1248,7 @@ const WarehousePage = () => {
                               exit={{ opacity: 0, y: 5 }}
                               className="absolute right-0 mt-2 w-full bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-1 overflow-hidden"
                             >
-                              {["مستودع الإنتاج التام", "مستودع المواد الخام", "مستودع التغليف"].map((wh) => (
+                              {["مستودع الإنتاج التام", "مستودع المواد الاولية", "مستودع التغليف"].map((wh) => (
                                 <button
                                   key={wh}
                                   onClick={() => {
@@ -1206,9 +1301,30 @@ const WarehousePage = () => {
                     <input 
                       type="text" 
                       value={certData.order_number || ''} 
-                      onChange={e => setCertData({...certData, order_number: e.target.value})}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 text-right"
+                      onChange={e => {
+                        const value = e.target.value;
+                        setCertData({...certData, order_number: value});
+                        if (value.trim() !== '') {
+                          const order = orders.find(o => o.order_number === value.trim());
+                          if (!order) {
+                            setOrderWarning("تحذير: رقم الطلبية غير موجود في النظام");
+                          } else if (order.status === 'completed') {
+                            setOrderWarning("تحذير: هذه الطلبية مكتملة بالفعل");
+                          } else {
+                            setOrderWarning("");
+                          }
+                        } else {
+                          setOrderWarning("");
+                        }
+                      }}
+                      className={`w-full px-4 py-2.5 border rounded-xl focus:ring-2 focus:ring-red-500 text-right ${orderWarning ? 'border-orange-500 bg-orange-50' : 'border-gray-300'}`}
                     />
+                    {orderWarning && (
+                      <p className="text-orange-600 text-xs mt-1 font-bold flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {orderWarning}
+                      </p>
+                    )}
                   </div>
                 </div>
 

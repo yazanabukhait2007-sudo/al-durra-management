@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { fetchWithAuth } from "../utils/api";
-import { Search, Edit, Trash2, Box, FileText, CheckCircle, X } from "lucide-react";
+import { Search, Edit, Trash2, Box, FileText, CheckCircle, X, RefreshCw, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import ConfirmModal from "../components/ConfirmModal";
 import CustomDatePicker from "../components/CustomDatePicker";
@@ -12,10 +12,25 @@ export default function ProductionManagement() {
   const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean; id: string | null }>({ isOpen: false, id: null });
   const [editModal, setEditModal] = useState<{ isOpen: boolean; pallet: any | null }>({ isOpen: false, pallet: null });
   const [editFormData, setEditFormData] = useState<any>({});
+  const [editPkgFormData, setEditPkgFormData] = useState<any>({});
+  const [activeEditTab, setActiveEditTab] = useState<'production' | 'packaging'>('production');
+  const [orders, setOrders] = useState<any[]>([]);
+  const [orderWarning, setOrderWarning] = useState("");
 
   useEffect(() => {
     fetchPallets();
+    fetchOrders();
   }, []);
+
+  const fetchOrders = async () => {
+    try {
+      const res = await fetchWithAuth("/api/orders");
+      const data = await res.json();
+      setOrders(data);
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    }
+  };
 
   const fetchPallets = async () => {
     try {
@@ -45,18 +60,42 @@ export default function ProductionManagement() {
   };
 
   const openEditModal = (pallet: any) => {
-    let certData = {};
+    let certData: any = {};
+    let pkgCertData: any = {};
     try {
       if (typeof pallet.certificate_data === 'string') {
         certData = JSON.parse(pallet.certificate_data);
       } else {
         certData = pallet.certificate_data || {};
       }
+      
+      if (typeof pallet.packaging_certificate_data === 'string') {
+        pkgCertData = JSON.parse(pallet.packaging_certificate_data);
+      } else {
+        pkgCertData = pallet.packaging_certificate_data || {};
+      }
     } catch (e) {
       console.error(e);
     }
+    
     setEditFormData(certData);
+    setEditPkgFormData(pkgCertData);
     setEditModal({ isOpen: true, pallet });
+    setActiveEditTab('production');
+
+    const orderNumber = certData.order_number || pkgCertData.order_number;
+    if (orderNumber && orderNumber.trim() !== '') {
+      const order = orders.find(o => o.order_number === orderNumber.trim());
+      if (!order) {
+        setOrderWarning("تحذير: رقم الطلبية غير موجود في النظام");
+      } else if (order.status === 'completed') {
+        setOrderWarning("تحذير: هذه الطلبية مكتملة بالفعل");
+      } else {
+        setOrderWarning("");
+      }
+    } else {
+      setOrderWarning("");
+    }
   };
 
   const handleEditSubmit = async (e: React.FormEvent) => {
@@ -64,23 +103,21 @@ export default function ProductionManagement() {
     if (!editModal.pallet) return;
     
     try {
-      const updatedPallet = {
-        ...editModal.pallet,
-        certificate_data: editFormData
+      const body: any = {
+        certificate_data: editFormData,
+        packaging_certificate_data: editPkgFormData,
+        type: editModal.pallet.type,
+        status: editModal.pallet.status
       };
 
       await fetchWithAuth(`/api/production/pallets/${editModal.pallet.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedPallet),
+        body: JSON.stringify(body),
       });
 
-      // Update local state with stringified version for consistency with how it was fetched
-      const localUpdatedPallet = {
-        ...editModal.pallet,
-        certificate_data: JSON.stringify(editFormData)
-      };
-      setPallets(pallets.map(p => p.id === editModal.pallet.id ? localUpdatedPallet : p));
+      // Refresh data from server
+      await fetchPallets();
       setEditModal({ isOpen: false, pallet: null });
     } catch (error) {
       console.error("Error updating pallet:", error);
@@ -102,6 +139,15 @@ export default function ProductionManagement() {
           </h1>
           <p className="text-gray-500 mt-2">إدارة جميع الطبالي والشهادات المنتجة</p>
         </div>
+        <button 
+          onClick={fetchPallets}
+          disabled={loading}
+          className="p-3 text-gray-600 hover:text-blue-600 bg-white rounded-2xl border border-gray-200 shadow-sm transition-all hover:shadow-md disabled:opacity-50 flex items-center gap-2 font-bold"
+          title="تحديث البيانات"
+        >
+          <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          تحديث
+        </button>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
@@ -159,9 +205,16 @@ export default function ProductionManagement() {
                           pallet.status === 'in_warehouse' ? 'bg-emerald-100 text-emerald-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {pallet.status === 'produced' ? 'في الإنتاج' :
+                          {pallet.status === 'produced' ? 'تم الإنتاج - بانتظار فحص الجودة' :
                            pallet.status === 'in_packaging' ? 'في التغليف' :
-                           pallet.status === 'in_warehouse' ? 'في المستودع' : pallet.status}
+                           pallet.status === 'in_warehouse' ? 'تم التخزين في المستودع النهائي' :
+                           pallet.status === 'awaiting_quality_officer' ? 'بانتظار توقيع ضابط الجودة' :
+                           pallet.status === 'awaiting_warehouse' ? 'بانتظار توقيع المستودع' :
+                           pallet.status === 'sent_to_warehouse' ? 'تم الإرسال إلى المستودع' :
+                           pallet.status === 'packaging_done' ? 'مكتمل التغليف - بانتظار موافقة الجودة' :
+                           pallet.status === 'packaging_qc_approved' ? 'جاهز للنقل للمستودع' :
+                           pallet.status === 'packaging_in_progress' ? 'جاري عملية التغليف' :
+                           pallet.status === 'in_packaging_stock' ? 'مستلم في قسم التغليف' : pallet.status}
                         </span>
                       </td>
                       <td className="p-4">
@@ -213,141 +266,281 @@ export default function ProductionManagement() {
                   <FileText className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900">تعديل الشهادة</h3>
+                  <h3 className="text-xl font-bold text-gray-900">تعديل البيانات</h3>
                   <p className="text-sm text-gray-500">رقم: {editModal.pallet?.id}</p>
                 </div>
               </div>
-              <button onClick={() => setEditModal({ isOpen: false, pallet: null })} className="text-gray-500 hover:text-gray-700 bg-white p-2 rounded-full shadow-sm border border-gray-200">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setActiveEditTab('production')}
+                  className={`px-4 py-2 rounded-xl font-bold transition-all ${activeEditTab === 'production' ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
+                >
+                  شهادة الإنتاج
+                </button>
+                <button 
+                  onClick={() => setActiveEditTab('packaging')}
+                  className={`px-4 py-2 rounded-xl font-bold transition-all ${activeEditTab === 'packaging' ? 'bg-purple-600 text-white shadow-md' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'}`}
+                >
+                  شهادة التغليف
+                </button>
+                <button onClick={() => setEditModal({ isOpen: false, pallet: null })} className="text-gray-500 hover:text-gray-700 bg-white p-2 rounded-full shadow-sm border border-gray-200 mr-4">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleEditSubmit} className="p-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div>
-                  <CustomDatePicker
-                    label="التاريخ"
-                    value={editFormData.date || ''}
-                    onChange={(date) => setEditFormData({ ...editFormData, date })}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">القسم</label>
-                  <input
-                    type="text"
-                    value={editFormData.department || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">إلى مستودع</label>
-                  <input
-                    type="text"
-                    value={editFormData.warehouse_target || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, warehouse_target: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">رقم شهادة المطابقة</label>
-                  <input
-                    type="text"
-                    value={editFormData.certificate_number || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, certificate_number: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">الزبون</label>
-                  <input
-                    type="text"
-                    value={editFormData.customer || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, customer: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">البلد</label>
-                  <input
-                    type="text"
-                    value={editFormData.country || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, country: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">رقم الطلبية</label>
-                  <input
-                    type="text"
-                    value={editFormData.order_number || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, order_number: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-              </div>
+              {activeEditTab === 'production' ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                      <CustomDatePicker
+                        label="التاريخ"
+                        value={editFormData.date || ''}
+                        onChange={(date) => setEditFormData({ ...editFormData, date })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">القسم</label>
+                      <input
+                        type="text"
+                        value={editFormData.department || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">إلى مستودع</label>
+                      <input
+                        type="text"
+                        value={editFormData.warehouse_target || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, warehouse_target: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">رقم شهادة المطابقة</label>
+                      <input
+                        type="text"
+                        value={editFormData.certificate_number || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, certificate_number: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">الزبون</label>
+                      <input
+                        type="text"
+                        value={editFormData.customer || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, customer: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">البلد</label>
+                      <input
+                        type="text"
+                        value={editFormData.country || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, country: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">رقم الطلبية</label>
+                      <input
+                        type="text"
+                        value={editFormData.order_number || ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setEditFormData({ ...editFormData, order_number: value });
+                          if (value.trim() !== '') {
+                            const order = orders.find(o => o.order_number === value.trim());
+                            if (!order) {
+                              setOrderWarning("تحذير: رقم الطلبية غير موجود في النظام");
+                            } else if (order.status === 'completed') {
+                              setOrderWarning("تحذير: هذه الطلبية مكتملة بالفعل");
+                            } else {
+                              setOrderWarning("");
+                            }
+                          } else {
+                            setOrderWarning("");
+                          }
+                        }}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none ${orderWarning ? 'border-orange-500 bg-orange-50' : ''}`}
+                      />
+                      {orderWarning && (
+                        <p className="text-orange-600 text-xs mt-1 font-bold flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {orderWarning}
+                        </p>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">الصنف</label>
-                  <input
-                    type="text"
-                    value={editFormData.item_name || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, item_name: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">وزن التعبئة</label>
-                  <input
-                    type="text"
-                    value={editFormData.filling_weight || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, filling_weight: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">عدد الكراتين</label>
-                  <input
-                    type="number"
-                    value={editFormData.carton_count || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, carton_count: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">رقم الخلطة</label>
-                  <input
-                    type="text"
-                    value={editFormData.batch_number || ''}
-                    onChange={(e) => setEditFormData({ ...editFormData, batch_number: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <CustomDatePicker
-                    label="تاريخ الإنتاج"
-                    value={editFormData.production_date || ''}
-                    onChange={(date) => setEditFormData({ ...editFormData, production_date: date })}
-                  />
-                </div>
-                <div>
-                  <CustomDatePicker
-                    label="تاريخ الانتهاء"
-                    value={editFormData.expiry_date || ''}
-                    onChange={(date) => setEditFormData({ ...editFormData, expiry_date: date })}
-                  />
-                </div>
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">الصنف</label>
+                      <input
+                        type="text"
+                        value={editFormData.item_name || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, item_name: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">وزن التعبئة</label>
+                      <input
+                        type="text"
+                        value={editFormData.filling_weight || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, filling_weight: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">عدد الكراتين</label>
+                      <input
+                        type="number"
+                        value={editFormData.carton_count || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, carton_count: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">رقم الخلطة</label>
+                      <input
+                        type="text"
+                        value={editFormData.batch_number || ''}
+                        onChange={(e) => setEditFormData({ ...editFormData, batch_number: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <CustomDatePicker
+                        label="تاريخ الإنتاج"
+                        value={editFormData.production_date || ''}
+                        onChange={(date) => setEditFormData({ ...editFormData, production_date: date })}
+                      />
+                    </div>
+                    <div>
+                      <CustomDatePicker
+                        label="تاريخ الانتهاء"
+                        value={editFormData.expiry_date || ''}
+                        onChange={(date) => setEditFormData({ ...editFormData, expiry_date: date })}
+                      />
+                    </div>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
-                <textarea
-                  value={editFormData.notes || ''}
-                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px]"
-                />
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+                    <textarea
+                      value={editFormData.notes || ''}
+                      onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px]"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div>
+                      <CustomDatePicker
+                        label="التاريخ"
+                        value={editPkgFormData.date || ''}
+                        onChange={(date) => setEditPkgFormData({ ...editPkgFormData, date })}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">القسم</label>
+                      <input
+                        type="text"
+                        value={editPkgFormData.department || ''}
+                        onChange={(e) => setEditPkgFormData({ ...editPkgFormData, department: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">إلى مستودع</label>
+                      <input
+                        type="text"
+                        value={editPkgFormData.warehouse_target || ''}
+                        onChange={(e) => setEditPkgFormData({ ...editPkgFormData, warehouse_target: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">رقم شهادة المطابقة</label>
+                      <input
+                        type="text"
+                        value={editPkgFormData.certificate_number || ''}
+                        onChange={(e) => setEditPkgFormData({ ...editPkgFormData, certificate_number: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 bg-purple-50 p-4 rounded-xl border border-purple-100">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">الصنف</label>
+                      <input
+                        type="text"
+                        value={editPkgFormData.item_name || ''}
+                        onChange={(e) => setEditPkgFormData({ ...editPkgFormData, item_name: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">وزن التعبئة</label>
+                      <input
+                        type="text"
+                        value={editPkgFormData.filling_weight || ''}
+                        onChange={(e) => setEditPkgFormData({ ...editPkgFormData, filling_weight: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">عدد الكراتين</label>
+                      <input
+                        type="number"
+                        value={editPkgFormData.carton_count || ''}
+                        onChange={(e) => setEditPkgFormData({ ...editPkgFormData, carton_count: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">رقم الطبخة</label>
+                      <input
+                        type="text"
+                        value={editPkgFormData.batch_number || ''}
+                        onChange={(e) => setEditPkgFormData({ ...editPkgFormData, batch_number: e.target.value })}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <CustomDatePicker
+                        label="تاريخ الإنتاج"
+                        value={editPkgFormData.production_date || ''}
+                        onChange={(date) => setEditPkgFormData({ ...editPkgFormData, production_date: date })}
+                      />
+                    </div>
+                    <div>
+                      <CustomDatePicker
+                        label="تاريخ الانتهاء"
+                        value={editPkgFormData.expiry_date || ''}
+                        onChange={(date) => setEditPkgFormData({ ...editPkgFormData, expiry_date: date })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
+                    <textarea
+                      value={editPkgFormData.notes || ''}
+                      onChange={(e) => setEditPkgFormData({ ...editPkgFormData, notes: e.target.value })}
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 outline-none min-h-[100px]"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
                 <button
@@ -359,9 +552,9 @@ export default function ProductionManagement() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors font-medium shadow-lg shadow-blue-200"
+                  className={`px-10 py-2 text-white rounded-xl transition-all font-bold shadow-lg ${activeEditTab === 'production' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'}`}
                 >
-                  حفظ التعديلات
+                  حفظ التغييرات
                 </button>
               </div>
             </form>
