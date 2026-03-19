@@ -170,6 +170,19 @@ db.exec(`
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (pallet_id) REFERENCES pallets(id)
   );
+
+  -- جدول سجلات الشحن
+  CREATE TABLE IF NOT EXISTS shipping_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pallet_id TEXT NOT NULL,
+    shipping_date TEXT,
+    destination TEXT,
+    driver_name TEXT,
+    truck_number TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (pallet_id) REFERENCES pallets(id)
+  );
   
   -- جدول الطلبيات
   CREATE TABLE IF NOT EXISTS orders (
@@ -867,6 +880,95 @@ async function startServer() {
       res.json({ success: true });
     } catch (err: any) {
       res.status(400).json({ error: err.message || "Failed to transfer pallet" });
+    }
+  });
+
+  app.post("/api/warehouse/ship", authenticateToken, (req, res) => {
+    const { pallet_ids, shipping_details } = req.body;
+    if (!pallet_ids || !Array.isArray(pallet_ids) || pallet_ids.length === 0) {
+      return res.status(400).json({ error: "Pallet IDs are required" });
+    }
+    try {
+      const transaction = db.transaction(() => {
+        for (const pallet_id of pallet_ids) {
+          db.prepare("UPDATE pallets SET status = 'shipped' WHERE id = ?").run(pallet_id);
+          db.prepare("UPDATE warehouse_stock SET location = 'external' WHERE pallet_id = ?").run(pallet_id);
+          // Optionally store shipping details in a new table or log
+          db.prepare("INSERT INTO shipping_logs (pallet_id, shipping_date, destination, driver_name, truck_number, notes) VALUES (?, ?, ?, ?, ?, ?)").run(
+            pallet_id, 
+            shipping_details?.shipping_date, 
+            shipping_details?.destination, 
+            shipping_details?.driver_name, 
+            shipping_details?.truck_number, 
+            shipping_details?.notes
+          );
+        }
+      });
+      transaction();
+      logAction(req, "SHIP_PALLETS", "pallet", 0, `تم شحن الطبالي: ${pallet_ids.join(", ")} إلى ${shipping_details?.destination || 'غير محدد'}`);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("Error shipping pallets:", err);
+      res.status(500).json({ error: "Failed to ship pallets" });
+    }
+  });
+
+  app.get("/api/warehouse/shipments", authenticateToken, (req, res) => {
+    try {
+      const logs = db.prepare(`
+        SELECT 
+          sl.shipping_date, sl.destination, sl.driver_name, sl.truck_number, sl.notes, sl.created_at,
+          p.id as pallet_id, p.type, p.details, p.production_certificate_data, p.packaging_certificate_data
+        FROM shipping_logs sl
+        JOIN pallets p ON sl.pallet_id = p.id
+        ORDER BY sl.created_at DESC
+      `).all();
+
+      // Group by shipment details
+      const shipmentsMap = new Map();
+      
+      logs.forEach((log: any) => {
+        // Create a unique key for the shipment
+        const key = `${log.shipping_date}-${log.destination}-${log.driver_name}-${log.truck_number}-${log.created_at}`;
+        
+        if (!shipmentsMap.has(key)) {
+          shipmentsMap.set(key, {
+            id: key,
+            shipping_details: {
+              shipping_date: log.shipping_date,
+              destination: log.destination,
+              driver_name: log.driver_name,
+              truck_number: log.truck_number,
+              notes: log.notes
+            },
+            created_at: log.created_at,
+            pallet_ids: [],
+            pallets: []
+          });
+        }
+        
+        const shipment = shipmentsMap.get(key);
+        shipment.pallet_ids.push(log.pallet_id);
+        
+        // Parse certificate data
+        let prodCert = null;
+        let pkgCert = null;
+        try { prodCert = log.production_certificate_data ? JSON.parse(log.production_certificate_data) : null; } catch (e) {}
+        try { pkgCert = log.packaging_certificate_data ? JSON.parse(log.packaging_certificate_data) : null; } catch (e) {}
+        
+        shipment.pallets.push({
+          id: log.pallet_id,
+          type: log.type,
+          details: log.details,
+          production_certificate_data: prodCert,
+          packaging_certificate_data: pkgCert
+        });
+      });
+
+      const shipments = Array.from(shipmentsMap.values());
+      res.json(shipments);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 

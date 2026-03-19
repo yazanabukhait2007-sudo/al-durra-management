@@ -6,6 +6,7 @@ import "react-calendar/dist/Calendar.css";
 import { fetchWithAuth } from "../utils/api";
 import CustomDatePicker from "../components/CustomDatePicker";
 import { useToast } from "../context/ToastContext";
+import ShippingModal from "../components/ShippingModal";
 import ConfirmModal from "../components/ConfirmModal";
 
 const WarehousePage = () => {
@@ -18,9 +19,48 @@ const WarehousePage = () => {
   const [showModalProductionDropdown, setShowModalProductionDropdown] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [pallets, setPallets] = useState<any[]>([]);
+  const [shippedPallets, setShippedPallets] = useState<any[]>([]);
   const [selectedDetails, setSelectedDetails] = useState<any>(null);
   const [expandedItemName, setExpandedItemName] = useState<string | null>(null);
+  const [selectedPallets, setSelectedPallets] = useState<string[]>([]);
+  const [showShippingModal, setShowShippingModal] = useState(false);
+  const [selectedShipment, setSelectedShipment] = useState<any>(null);
   const { showToast } = useToast();
+
+  const loadShippedPallets = async () => {
+    try {
+      const res = await fetchWithAuth("/api/warehouse/shipments");
+      const data = await res.json();
+      setShippedPallets(data);
+    } catch (err) {
+      console.error("فشل في تحميل الشحنات", err);
+    }
+  };
+
+  const handleShipPallets = async (details: any) => {
+    if (selectedPallets.length === 0) return;
+    try {
+      const res = await fetchWithAuth("/api/warehouse/ship", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            pallet_ids: selectedPallets,
+            shipping_details: details 
+        }),
+      });
+
+      if (res.ok) {
+        showToast("تم شحن الطبالي المختارة بنجاح", "success");
+        setSelectedPallets([]);
+        setShowShippingModal(false);
+        loadPallets();
+      } else {
+        throw new Error("فشل في شحن الطبالي");
+      }
+    } catch (err: any) {
+      showToast(err.message, "error");
+    }
+  };
 
   // Edit/Delete State
   const [showEditModal, setShowEditModal] = useState(false);
@@ -100,6 +140,12 @@ const WarehousePage = () => {
   };
 
   useEffect(() => {
+    if (activeMainTab === 'external') {
+      loadShippedPallets();
+    }
+  }, [activeMainTab]);
+
+  useEffect(() => {
     if (activeInternalTab === 'requests') {
       loadRequests();
     } else if (activeInternalTab === 'production') {
@@ -132,6 +178,7 @@ const WarehousePage = () => {
 
   const [productionType, setProductionType] = useState<'tomato' | 'ketchup'>('tomato');
   const [palletCode, setPalletCode] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [certData, setCertData] = useState({
     date: new Date().toISOString().slice(0, 10),
     department: "قسم الإنتاج",
@@ -151,25 +198,33 @@ const WarehousePage = () => {
       supervisor: { signed: false, name: 'مشرف الإنتاج', date: '' },
       qc: { signed: false, name: 'مراقب الجودة', date: '' },
       quality_officer: { signed: false, name: 'ضابط الجودة', date: '' },
-      warehouse: { signed: false, name: 'مسؤول المستودع', date: '' }
+      warehouse: { signed: true, name: 'مسؤول المستودع', date: new Date().toISOString().slice(0, 10) }
     }
   });
 
-  // Generate pallet code and update department when type changes
+  // Generate pallet code and update department when type changes or modal opens
   useEffect(() => {
-    const prefix = productionType === 'tomato' ? 'TOM' : 'KET';
-    const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-    const randomPart = Math.floor(1000 + Math.random() * 9000);
-    setPalletCode(`${prefix}-${datePart}-${randomPart}`);
-    
-    // Update department in certData automatically
-    setCertData(prev => ({
-      ...prev,
-      department: productionType === 'tomato' ? 'قسم البندورة' : 'قسم الكاتشب والصوصات'
-    }));
-  }, [productionType]);
+    if (showAddModal) {
+      const prefix = productionType === 'tomato' ? 'TOM' : 'KET';
+      const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+      const randomPart = Math.floor(1000 + Math.random() * 9000);
+      setPalletCode(`${prefix}-${datePart}-${randomPart}`);
+      
+      // Update department in certData automatically
+      setCertData(prev => ({
+        ...prev,
+        department: productionType === 'tomato' ? 'قسم البندورة' : 'قسم الكاتشب والصوصات'
+      }));
+    }
+  }, [productionType, showAddModal]);
 
   const handleAddProduction = async () => {
+    if (!certData.item_name || !certData.carton_count) {
+      showToast("الرجاء إدخال اسم الصنف وعدد الكراتين", "error");
+      return;
+    }
+    if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
       const res = await fetchWithAuth("/api/production/pallets", {
         method: "POST",
@@ -177,6 +232,7 @@ const WarehousePage = () => {
         body: JSON.stringify({
           id: palletCode,
           type: productionType,
+          department: productionType === 'tomato' ? 'قسم البندورة' : 'قسم الكاتشب والصوصات',
           details: `${certData.item_name} - ${certData.carton_count} كرتونة`,
           certificate_data: certData,
           location: 'internal_production',
@@ -185,10 +241,11 @@ const WarehousePage = () => {
       });
 
       if (res.ok) {
+        showToast(`تم إنتاج الطبلية بنجاح! الكود: ${palletCode}`, "success");
         setShowAddModal(false);
         setCertData({
           date: new Date().toISOString().slice(0, 10),
-          department: "قسم الإنتاج",
+          department: productionType === 'tomato' ? 'قسم البندورة' : 'قسم الكاتشب والصوصات',
           item_name: '',
           filling_weight: '',
           carton_count: '',
@@ -197,18 +254,27 @@ const WarehousePage = () => {
           expiry_date: '',
           warehouse_target: '',
           certificate_number: '',
+          customer: '',
+          country: '',
+          order_number: '',
           notes: '',
           signatures: {
             supervisor: { signed: false, name: 'مشرف الإنتاج', date: '' },
             qc: { signed: false, name: 'مراقب الجودة', date: '' },
             quality_officer: { signed: false, name: 'ضابط الجودة', date: '' },
-            warehouse: { signed: false, name: 'مسؤول المستودع', date: '' }
+            warehouse: { signed: true, name: 'مسؤول المستودع', date: new Date().toISOString().slice(0, 10) }
           }
         });
         loadPallets();
+      } else {
+        const errorData = await res.json();
+        showToast(errorData.error || "فشل في إضافة الطبلية", "error");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("فشل في إضافة الطبلية", err);
+      showToast(err.message || "حدث خطأ أثناء الاتصال بالخادم", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -367,13 +433,24 @@ const WarehousePage = () => {
                       <Package className="w-6 h-6 text-blue-600" />
                       <h2 className="text-xl font-bold">سجل الإنتاج الحديث</h2>
                     </div>
-                    <button 
-                      onClick={() => setShowAddModal(true)}
-                      className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100 flex items-center gap-2"
-                    >
-                      <ArrowDownCircle className="w-5 h-5" />
-                      إضافة الإنتاج الجاهز
-                    </button>
+                    <div className="flex gap-2">
+                      {selectedPallets.length > 0 && (
+                        <button 
+                          onClick={() => setShowShippingModal(true)}
+                          className="bg-green-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-green-700 transition shadow-lg shadow-green-100 flex items-center gap-2"
+                        >
+                          <Truck className="w-5 h-5" />
+                          شحن {selectedPallets.length} طبلية
+                        </button>
+                      )}
+                      <button 
+                        onClick={() => setShowAddModal(true)}
+                        className="bg-blue-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-blue-700 transition shadow-lg shadow-blue-100 flex items-center gap-2"
+                      >
+                        <ArrowDownCircle className="w-5 h-5" />
+                        إضافة الإنتاج الجاهز
+                      </button>
+                    </div>
                   </div>
                   
                   {pallets.filter(p => p.location === 'internal_production').length === 0 ? (
@@ -420,6 +497,7 @@ const WarehousePage = () => {
                               <table className="w-full text-right border-collapse">
                                 <thead>
                                   <tr className="text-gray-600 text-xs uppercase tracking-wider bg-gray-50/50">
+                                    <th className="p-3 font-bold border-b"></th>
                                     <th className="p-3 font-bold border-b">كود الطبلية</th>
                                     <th className="p-3 font-bold border-b text-center">الكمية (كرتون)</th>
                                     <th className="p-3 font-bold border-b">تاريخ الإنتاج</th>
@@ -431,6 +509,20 @@ const WarehousePage = () => {
                                 <tbody className="divide-y divide-gray-50">
                                   {items.map((pallet: any) => (
                                     <tr key={pallet.pallet_id} className="hover:bg-gray-50 transition-colors">
+                                      <td className="p-3">
+                                        <input 
+                                          type="checkbox"
+                                          checked={selectedPallets.includes(pallet.pallet_id)}
+                                          onChange={(e) => {
+                                            if (e.target.checked) {
+                                              setSelectedPallets([...selectedPallets, pallet.pallet_id]);
+                                            } else {
+                                              setSelectedPallets(selectedPallets.filter(id => id !== pallet.pallet_id));
+                                            }
+                                          }}
+                                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                        />
+                                      </td>
                                       <td className="p-3 font-mono text-sm font-bold text-blue-600">{pallet.pallet_id}</td>
                                       <td className="p-3 text-sm text-gray-700 font-bold text-center">
                                         <span className="bg-gray-100 px-2 py-1 rounded-lg">{pallet._details.carton_count || '-'}</span>
@@ -590,6 +682,12 @@ const WarehousePage = () => {
                 </div>
               )}
               {/* Details Modal */}
+              <ShippingModal 
+                isOpen={showShippingModal} 
+                onClose={() => setShowShippingModal(false)}
+                onConfirm={handleShipPallets}
+                palletCount={selectedPallets.length}
+              />
               {selectedDetails && selectedDetails._show_modal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 backdrop-blur-sm overflow-y-auto">
                   <motion.div 
@@ -977,13 +1075,152 @@ const WarehousePage = () => {
             </div>
           </div>
         ) : (
-          <div className="text-center py-20">
-            <Warehouse className="w-16 h-16 text-blue-200 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">التصدير</h2>
-            <p className="text-gray-500">إدارة المخزون الخارجي والشحن.</p>
+          <div className="w-full">
+            <h2 className="text-xl font-bold mb-6">الشحنات الصادرة</h2>
+            {shippedPallets.length === 0 ? (
+              <div className="text-gray-500 text-center py-10">لا توجد شحنات صادرة</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-right border-collapse">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="p-3">كود الطبلية</th>
+                      <th className="p-3">تاريخ الشحن</th>
+                      <th className="p-3">الوجهة</th>
+                      <th className="p-3">السائق</th>
+                      <th className="p-3">رقم الشاحنة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shippedPallets.map((shipment) => (
+                      <tr 
+                        key={shipment.id} 
+                        className="border-b hover:bg-gray-50 cursor-pointer"
+                        onClick={() => {
+                          setSelectedShipment(shipment);
+                        }}
+                      >
+                        <td className="p-3 font-mono">{shipment.pallet_ids?.join(', ') || '-'}</td>
+                        <td className="p-3">{shipment.shipping_details?.shipping_date || '-'}</td>
+                        <td className="p-3">{shipment.shipping_details?.destination || '-'}</td>
+                        <td className="p-3">{shipment.shipping_details?.driver_name || '-'}</td>
+                        <td className="p-3">{shipment.shipping_details?.truck_number || '-'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </motion.div>
+
+      {/* Shipment Details Modal */}
+      <AnimatePresence>
+        {selectedShipment && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden border border-gray-100 flex flex-col max-h-[90vh]"
+            >
+              <div className="bg-white p-6 border-b flex justify-between items-center">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-50 rounded-lg">
+                    <Truck className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">تفاصيل الشحنة</h3>
+                    <p className="text-sm text-gray-500">تاريخ الشحن: {selectedShipment.shipping_details?.shipping_date}</p>
+                  </div>
+                </div>
+                <button onClick={() => setSelectedShipment(null)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              
+              <div className="p-6 overflow-y-auto flex-1 bg-gray-50 text-right">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <span className="text-gray-500 text-sm block mb-1">الوجهة</span>
+                    <span className="font-bold text-gray-900">{selectedShipment.shipping_details?.destination || '-'}</span>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <span className="text-gray-500 text-sm block mb-1">اسم السائق</span>
+                    <span className="font-bold text-gray-900">{selectedShipment.shipping_details?.driver_name || '-'}</span>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <span className="text-gray-500 text-sm block mb-1">رقم الشاحنة</span>
+                    <span className="font-bold text-gray-900">{selectedShipment.shipping_details?.truck_number || '-'}</span>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                    <span className="text-gray-500 text-sm block mb-1">عدد الطبالي</span>
+                    <span className="font-bold text-gray-900">{selectedShipment.pallet_ids?.length || 0} طبلية</span>
+                  </div>
+                </div>
+
+                {selectedShipment.shipping_details?.notes && (
+                  <div className="mb-8">
+                    <h4 className="font-bold text-gray-900 mb-3">ملاحظات</h4>
+                    <p className="bg-white p-4 rounded-xl text-gray-700 shadow-sm border border-gray-100">
+                      {selectedShipment.shipping_details.notes}
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <h4 className="font-bold text-gray-900 mb-4 flex items-center gap-2">
+                    <Package className="w-5 h-5 text-blue-600" />
+                    تفاصيل الطبالي المشحونة
+                  </h4>
+                  <div className="space-y-4">
+                    {selectedShipment.pallets?.map((pallet: any, idx: number) => {
+                      const cert = pallet.packaging_certificate_data || pallet.production_certificate_data || {};
+                      return (
+                        <div key={idx} className="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow">
+                          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+                            <div className="flex items-center gap-3">
+                              <div className="bg-blue-50 text-blue-700 font-mono px-3 py-1.5 rounded-lg border border-blue-100 font-bold">
+                                {pallet.id}
+                              </div>
+                              <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm font-medium">
+                                {pallet.type === 'tomato' ? 'صلصة طماطم' : pallet.type === 'ketchup' ? 'كاتشب' : 'أخرى'}
+                              </span>
+                            </div>
+                            <div className="text-sm text-gray-500">
+                              تاريخ الإنتاج: {cert.production_date || '-'}
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div>
+                              <span className="text-gray-500 block mb-1">الصنف</span>
+                              <span className="font-bold text-gray-900">{cert.item_name || pallet.details || '-'}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 block mb-1">عدد الكراتين</span>
+                              <span className="font-bold text-gray-900">{cert.carton_count || '-'}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 block mb-1">رقم الباتش</span>
+                              <span className="font-bold text-gray-900">{cert.batch_number || '-'}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 block mb-1">تاريخ الانتهاء</span>
+                              <span className="font-bold text-gray-900">{cert.expiry_date || '-'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Edit Modal */}
       <AnimatePresence>
@@ -1182,7 +1419,7 @@ const WarehousePage = () => {
                 {/* Type Selection */}
                 <div className="flex gap-4 p-4 bg-blue-50 rounded-xl border border-blue-100">
                   <div className="flex-1">
-                    <label className="block text-xs font-bold text-blue-600 mb-2 text-right">نوع الإنتاج</label>
+                    <label className="block text-xs font-bold text-blue-600 mb-2 text-right">من قسم</label>
                     <div className="flex gap-2">
                       <button
                         onClick={() => setProductionType('tomato')}
@@ -1216,58 +1453,14 @@ const WarehousePage = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 text-right">من قسم</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 text-right">إلى مستودع</label>
                     <input 
                       type="text" 
-                      value={productionType === 'tomato' ? 'قسم البندورة' : 'قسم الكاتشب والصوصات'} 
-                      disabled
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-gray-100 text-gray-500 text-right cursor-not-allowed"
+                      value={certData.warehouse_target} 
+                      onChange={e => setCertData({...certData, warehouse_target: e.target.value})}
+                      className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 text-right"
+                      placeholder="أدخل اسم المستودع"
                     />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1 text-right">إلى مستودع</label>
-                    <div className="relative">
-                      <button
-                        onClick={() => setShowModalWarehouseDropdown(!showModalWarehouseDropdown)}
-                        className="w-full flex items-center justify-between px-4 py-2.5 border border-gray-300 rounded-xl bg-white hover:border-gray-400 transition-all focus:ring-2 focus:ring-red-500 outline-none"
-                      >
-                        <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showModalWarehouseDropdown ? 'rotate-180' : ''}`} />
-                        <span className="text-gray-700">{certData.warehouse_target}</span>
-                      </button>
-
-                      <AnimatePresence>
-                        {showModalWarehouseDropdown && (
-                          <>
-                            <div className="fixed inset-0 z-10" onClick={() => setShowModalWarehouseDropdown(false)} />
-                            <motion.div
-                              initial={{ opacity: 0, y: 5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: 5 }}
-                              className="absolute right-0 mt-2 w-full bg-white border border-gray-100 rounded-xl shadow-xl z-20 py-1 overflow-hidden"
-                            >
-                              {["مستودع الإنتاج التام", "مستودع المواد الاولية", "مستودع التغليف"].map((wh) => (
-                                <button
-                                  key={wh}
-                                  onClick={() => {
-                                    setCertData({...certData, warehouse_target: wh});
-                                    setShowModalWarehouseDropdown(false);
-                                  }}
-                                  className={`w-full text-right px-4 py-2.5 text-sm transition-colors hover:bg-red-50 flex items-center justify-between ${
-                                    certData.warehouse_target === wh ? 'text-red-600 bg-red-50 font-bold' : 'text-gray-600'
-                                  }`}
-                                >
-                                  {certData.warehouse_target === wh && <CheckCircle className="w-4 h-4" />}
-                                  {wh}
-                                </button>
-                              ))}
-                            </motion.div>
-                          </>
-                        )}
-                      </AnimatePresence>
-                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1 text-right">رقم شهادة المطابقة</label>
@@ -1449,10 +1642,11 @@ const WarehousePage = () => {
                 <div className="flex gap-4 pt-4">
                   <button 
                     onClick={handleAddProduction}
-                    className="flex-1 bg-red-600 text-white py-4 rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2"
+                    disabled={isSubmitting}
+                    className="flex-1 bg-red-600 text-white py-4 rounded-xl font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <Barcode className="w-5 h-5" />
-                    حفظ الشهادة وإنتاج الكود
+                    {isSubmitting ? "جاري الحفظ..." : "حفظ الشهادة وإنتاج الكود"}
                   </button>
                   <button 
                     onClick={() => setShowAddModal(false)}
