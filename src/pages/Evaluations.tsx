@@ -38,15 +38,9 @@ export default function Evaluations() {
     try {
       const res = await fetchWithAuth(`/api/evaluations?month=${month}`);
       const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setEvaluations(data);
-      } else {
-        console.error("Failed to fetch evaluations", data);
-        setEvaluations([]);
-      }
+      setEvaluations(data);
     } catch (error) {
       console.error("Failed to fetch evaluations", error);
-      setEvaluations([]);
     } finally {
       setLoading(false);
     }

@@ -123,15 +123,9 @@ export default function Workers() {
     try {
       const res = await fetchWithAuth("/api/workers");
       const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setWorkers(data);
-      } else {
-        console.error("Failed to fetch workers", data);
-        setWorkers([]);
-      }
+      setWorkers(data);
     } catch (error) {
       console.error("Failed to fetch workers", error);
-      setWorkers([]);
     } finally {
       setLoading(false);
     }

@@ -31,15 +31,9 @@ const WarehousePage = () => {
     try {
       const res = await fetchWithAuth("/api/warehouse/shipments");
       const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setShippedPallets(data);
-      } else {
-        console.error("فشل في تحميل الشحنات", data);
-        setShippedPallets([]);
-      }
+      setShippedPallets(data);
     } catch (err) {
       console.error("فشل في تحميل الشحنات", err);
-      setShippedPallets([]);
     }
   };
 
@@ -167,15 +161,9 @@ const WarehousePage = () => {
     try {
       const res = await fetchWithAuth("/api/orders");
       const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setOrders(data);
-      } else {
-        console.error("Error fetching orders:", data);
-        setOrders([]);
-      }
+      setOrders(data);
     } catch (error) {
       console.error("Error fetching orders:", error);
-      setOrders([]);
     }
   };
 

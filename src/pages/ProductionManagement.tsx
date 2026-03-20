@@ -26,15 +26,9 @@ export default function ProductionManagement() {
     try {
       const res = await fetchWithAuth("/api/orders");
       const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setOrders(data);
-      } else {
-        console.error("Error fetching orders:", data);
-        setOrders([]);
-      }
+      setOrders(data);
     } catch (error) {
       console.error("Error fetching orders:", error);
-      setOrders([]);
     }
   };
 
@@ -43,15 +37,9 @@ export default function ProductionManagement() {
       setLoading(true);
       const res = await fetchWithAuth("/api/production/pallets");
       const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setPallets(data);
-      } else {
-        console.error("Error fetching pallets:", data);
-        setPallets([]);
-      }
+      setPallets(data);
     } catch (error) {
       console.error("Error fetching pallets:", error);
-      setPallets([]);
     } finally {
       setLoading(false);
     }

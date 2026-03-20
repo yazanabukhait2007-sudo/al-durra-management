@@ -40,15 +40,9 @@ export default function Tasks() {
     try {
       const res = await fetchWithAuth("/api/tasks?active_only=true");
       const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setTasks(data);
-      } else {
-        console.error("Failed to fetch tasks", data);
-        setTasks([]);
-      }
+      setTasks(data);
     } catch (error) {
       console.error("Failed to fetch tasks", error);
-      setTasks([]);
     } finally {
       setLoading(false);
     }

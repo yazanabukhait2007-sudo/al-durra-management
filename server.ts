@@ -918,7 +918,7 @@ async function startServer() {
       const logs = db.prepare(`
         SELECT 
           sl.shipping_date, sl.destination, sl.driver_name, sl.truck_number, sl.notes, sl.created_at,
-          p.id as pallet_id, p.type, p.details, p.certificate_data, p.packaging_certificate_data
+          p.id as pallet_id, p.type, p.details, p.production_certificate_data, p.packaging_certificate_data
         FROM shipping_logs sl
         JOIN pallets p ON sl.pallet_id = p.id
         ORDER BY sl.created_at DESC
@@ -953,7 +953,7 @@ async function startServer() {
         // Parse certificate data
         let prodCert = null;
         let pkgCert = null;
-        try { prodCert = log.certificate_data ? JSON.parse(log.certificate_data) : null; } catch (e) {}
+        try { prodCert = log.production_certificate_data ? JSON.parse(log.production_certificate_data) : null; } catch (e) {}
         try { pkgCert = log.packaging_certificate_data ? JSON.parse(log.packaging_certificate_data) : null; } catch (e) {}
         
         shipment.pallets.push({
@@ -2246,13 +2246,12 @@ async function startServer() {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
-      root: path.join(__dirname, "frontend"),
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.join(__dirname, "frontend", "dist")));
-    app.get("/*", (req, res) => {
-      res.sendFile(path.join(__dirname, "frontend", "dist", "index.html"));
+    app.use(express.static(path.join(__dirname, "dist")));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(__dirname, "dist", "index.html"));
     });
   }
 

@@ -33,15 +33,9 @@ export default function MonthlyReport() {
     try {
       const res = await fetchWithAuth(`/api/reports/monthly?month=${month}`);
       const data = await res.json();
-      if (res.ok && Array.isArray(data)) {
-        setReport(data);
-      } else {
-        console.error("Failed to fetch report", data);
-        setReport([]);
-      }
+      setReport(data);
     } catch (error) {
       console.error("Failed to fetch report", error);
-      setReport([]);
     } finally {
       setLoading(false);
     }
