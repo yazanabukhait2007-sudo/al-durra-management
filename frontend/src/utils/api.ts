@@ -1,7 +1,7 @@
 export const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
   try {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
-    const fullUrl = `${baseUrl}${url}`;
+    // Ensure we always use relative paths for Nginx reverse proxy compatibility
+    const fullUrl = url.startsWith('/') ? url : `/${url}`;
     console.log("DEBUG: Fetching URL:", fullUrl);
 
     const token = localStorage.getItem("token");

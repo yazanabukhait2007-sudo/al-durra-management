@@ -72,11 +72,17 @@ export default function Attendance() {
       if (activeTab === 'attendance') {
         const res = await fetchWithAuth(`/api/attendance?date=${selectedDate}`);
         const data = await res.json();
-        setAttendanceRecords(data);
+        if (res.ok && Array.isArray(data)) {
+          setAttendanceRecords(data);
+        } else {
+          console.error("Failed to fetch data", data);
+          setAttendanceRecords([]);
+        }
       }
     } catch (error) {
       console.error("Failed to fetch data", error);
       showToast("فشل تحميل البيانات", "error");
+      setAttendanceRecords([]);
     } finally {
       setLoading(false);
     }

@@ -63,7 +63,7 @@ function ProtectedRoute({ children, permission, role }: { children: React.ReactN
     return <Navigate to="/" replace />;
   }
 
-  if (permission && user.role !== "admin" && !user.permissions.includes(permission)) {
+  if (permission && user.role !== "admin" && !(user.permissions || []).includes(permission)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center p-6 bg-gray-50 dark:bg-gray-900" dir="rtl">
         <div className="bg-white dark:bg-gray-800 p-8 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 max-w-md w-full">
