@@ -284,35 +284,35 @@ function applyMonthlySocialSecurity() {
 }
 
 // تنفيذ الخصم عند تشغيل السيرفر
-applyMonthlySocialSecurity();
+// applyMonthlySocialSecurity();
 
 // Create default admin if not exists
-const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
-const hashedAdmin = bcrypt.hashSync("Durra@2026", 10);
-
-if (!adminExists) {
-  db.prepare("INSERT INTO users (username, email, password, status, role, permissions) VALUES (?, ?, ?, ?, ?, ?)").run(
-    "admin", 
-    "admin@example.com",
-    hashedAdmin, 
-    "approved", 
-    "admin", 
-    JSON.stringify(["manage_workers", "manage_tasks", "add_evaluation", "edit_evaluation", "delete_evaluation", "view_evaluations", "view_reports", "manage_users", "view_audit_logs"])
-  );
-} else {
-  // Force update password and email to a stronger one to avoid browser warnings
-  db.prepare("UPDATE users SET password = ?, email = ? WHERE username = 'admin'").run(hashedAdmin, "admin@example.com");
-  
-  // Update admin permissions to include view_audit_logs if missing
-  try {
-    const adminUser = adminExists as any;
-    const perms = JSON.parse(adminUser.permissions || '[]');
-    if (!perms.includes('view_audit_logs')) {
-      perms.push('view_audit_logs');
-      db.prepare("UPDATE users SET permissions = ? WHERE id = ?").run(JSON.stringify(perms), adminUser.id);
-    }
-  } catch (e) {}
-}
+// const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+// const hashedAdmin = bcrypt.hashSync("Durra@2026", 10);
+// 
+// if (!adminExists) {
+//   db.prepare("INSERT INTO users (username, email, password, status, role, permissions) VALUES (?, ?, ?, ?, ?, ?)").run(
+//     "admin", 
+//     "admin@example.com",
+//     hashedAdmin, 
+//     "approved", 
+//     "admin", 
+//     JSON.stringify(["manage_workers", "manage_tasks", "add_evaluation", "edit_evaluation", "delete_evaluation", "view_evaluations", "view_reports", "manage_users", "view_audit_logs"])
+//   );
+// } else {
+//   // Force update password and email to a stronger one to avoid browser warnings
+//   db.prepare("UPDATE users SET password = ?, email = ? WHERE username = 'admin'").run(hashedAdmin, "admin@example.com");
+//   
+//   // Update admin permissions to include view_audit_logs if missing
+//   try {
+//     const adminUser = adminExists as any;
+//     const perms = JSON.parse(adminUser.permissions || '[]');
+//     if (!perms.includes('view_audit_logs')) {
+//       perms.push('view_audit_logs');
+//       db.prepare("UPDATE users SET permissions = ? WHERE id = ?").run(JSON.stringify(perms), adminUser.id);
+//     }
+//   } catch (e) {}
+// }
 
 // Helper for logging
 const logAction = (req: any, action: string, entityType?: string, entityId?: number, details?: string) => {
