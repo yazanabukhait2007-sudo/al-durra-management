@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "start": "node server.js",
+    "start": "node server.ts",
     "build": "cd frontend && npm install && npm run build",
     "clean": "rm -rf dist frontend/dist",
     "lint": "cd frontend && tsc --noEmit"
