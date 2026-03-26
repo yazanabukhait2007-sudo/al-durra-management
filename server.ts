@@ -444,7 +444,7 @@ async function startServer() {
     logger(`DEBUG: ${req.method} ${req.url}`);
     next();
   });
-  const PORT = 3000;
+  const PORT = process.env.PORT || 3000;
 
   app.use(express.json());
 
@@ -2283,7 +2283,7 @@ async function startServer() {
     res.status(500).json({ error: "Internal server error" });
   });
 
-  app.listen(PORT, "0.0.0.0", () => {
+  app.listen(Number(PORT), "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
