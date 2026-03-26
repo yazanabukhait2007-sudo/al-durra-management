@@ -7,8 +7,6 @@ import Logo from "../components/Logo";
 import ValidationTooltip from "../components/ValidationTooltip";
 import { User, Lock, LogIn, Eye, EyeOff } from "lucide-react";
 
-import { useTheme } from "../context/ThemeContext";
-
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -17,15 +15,13 @@ export default function Login() {
   const [showErrors, setShowErrors] = useState(false);
   const { user, login } = useAuth();
   const { showToast } = useToast();
-  const { setTheme } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
-    setTheme("light");
     if (user) {
       navigate("/");
     }
-  }, [user, navigate, setTheme]);
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,13 +102,11 @@ export default function Login() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className={`block w-full pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none ${
-                    showErrors && !email ? "border-red-500" : "border-gray-200"
-                  }`}
+                  className={`block w-full pr-12 py-3 border rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none ${ showErrors && !email ? "border-red-500" : "border-gray-200" }`}
                   placeholder="أدخل البريد الإلكتروني..."
                 />
                 {showErrors && !email && (
-                  <ValidationTooltip />
+                  <ValidationTooltip message="يجب إدخال البريد الإلكتروني" />
                 )}
               </div>
             </div>
@@ -130,9 +124,7 @@ export default function Login() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`block w-full pr-12 pl-12 py-3 border rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none ${
-                    showErrors && !password ? "border-red-500" : "border-gray-200"
-                  }`}
+                  className={`block w-full pr-12 pl-12 py-3 border rounded-xl focus:ring-2 focus:ring-durra-green focus:border-durra-green sm:text-sm transition-all bg-gray-50 focus:bg-white text-gray-900 outline-none ${ showErrors && !password ? "border-red-500" : "border-gray-200" }`}
                   placeholder="أدخل كلمة المرور..."
                 />
                 <button
@@ -147,7 +139,7 @@ export default function Login() {
                   )}
                 </button>
                 {showErrors && !password && (
-                  <ValidationTooltip />
+                  <ValidationTooltip message="يجب إدخال كلمة المرور" />
                 )}
               </div>
             </div>
@@ -188,4 +180,4 @@ export default function Login() {
       </div>
     </motion.div>
   );
-                }
+}

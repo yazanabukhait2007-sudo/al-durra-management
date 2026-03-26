@@ -1,4 +1,5 @@
 import express from "express";
+console.log("SERVER TS IS RUNNING");
 import { createServer as createViteServer } from "vite";
 import Database from "better-sqlite3";
 import path from "path";
@@ -14,199 +15,212 @@ const logStream = fs.createWriteStream(path.join(__dirname, 'server.log'), {flag
 const logger = (message: string) => {
   logStream.write(`${new Date().toISOString()} - ${message}\n`);
 };
+const consoleLog = (message: string) => {
+  console.log(message);
+  logger(message);
+};
 
 const db = new Database("database.sqlite");
+consoleLog("Database initialized.");
 const JWT_SECRET = process.env.JWT_SECRET || "super-secret-key-durra-app";
 
 // Initialize Database
 // إعداد قاعدة البيانات والجداول الأساسية
-db.exec(`
-  -- جدول العمال: يحتوي على كافة البيانات الشخصية والمهنية للموظفين
-  CREATE TABLE IF NOT EXISTS workers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    phone TEXT,
-    alt_phone TEXT,
-    address TEXT,
-    skills TEXT,
-    last_workplace TEXT,
-    current_job TEXT,
-    salary REAL,
-    has_social_security INTEGER DEFAULT 0,
-    national_id TEXT,
-    age INTEGER,
-    notes TEXT
-  );
+try {
+  consoleLog("Starting database table creation...");
+  db.exec(`
+    -- جدول العمال: يحتوي على كافة البيانات الشخصية والمهنية للموظفين
+    CREATE TABLE IF NOT EXISTS workers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      phone TEXT,
+      alt_phone TEXT,
+      address TEXT,
+      skills TEXT,
+      last_workplace TEXT,
+      current_job TEXT,
+      salary REAL,
+      has_social_security INTEGER DEFAULT 0,
+      national_id TEXT,
+      age INTEGER,
+      notes TEXT
+    );
 
-  -- جدول المهام: تعريف المهام والكميات المستهدفة لكل مهمة
-  CREATE TABLE IF NOT EXISTS tasks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    target_quantity INTEGER NOT NULL,
-    is_active INTEGER DEFAULT 1
-  );
+    -- جدول المهام: تعريف المهام والكميات المستهدفة لكل مهمة
+    CREATE TABLE IF NOT EXISTS tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      target_quantity INTEGER NOT NULL,
+      is_active INTEGER DEFAULT 1
+    );
 
-  -- جدول التقييمات اليومية: السجل الرئيسي لتقييم الموظف في يوم محدد
-  CREATE TABLE IF NOT EXISTS daily_evaluations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    worker_id INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    total_score REAL NOT NULL,
-    FOREIGN KEY (worker_id) REFERENCES workers(id)
-  );
+    -- جدول التقييمات اليومية: السجل الرئيسي لتقييم الموظف في يوم محدد
+    CREATE TABLE IF NOT EXISTS daily_evaluations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      worker_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      total_score REAL NOT NULL,
+      FOREIGN KEY (worker_id) REFERENCES workers(id)
+    );
 
-  -- تفاصيل المهام في التقييم: تفصيل كل مهمة قام بها الموظف ودرجتها
-  CREATE TABLE IF NOT EXISTS task_entries (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    evaluation_id INTEGER NOT NULL,
-    task_id INTEGER NOT NULL,
-    quantity INTEGER NOT NULL,
-    score REAL NOT NULL,
-    FOREIGN KEY (evaluation_id) REFERENCES daily_evaluations(id),
-    FOREIGN KEY (task_id) REFERENCES tasks(id)
-  );
+    -- تفاصيل المهام في التقييم: تفصيل كل مهمة قام بها الموظف ودرجتها
+    CREATE TABLE IF NOT EXISTS task_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      evaluation_id INTEGER NOT NULL,
+      task_id INTEGER NOT NULL,
+      quantity INTEGER NOT NULL,
+      score REAL NOT NULL,
+      FOREIGN KEY (evaluation_id) REFERENCES daily_evaluations(id),
+      FOREIGN KEY (task_id) REFERENCES tasks(id)
+    );
 
-  -- جدول المستخدمين: إدارة الدخول والصلاحيات للنظام
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    password TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'approved',
-    role TEXT NOT NULL DEFAULT 'user',
-    permissions TEXT NOT NULL DEFAULT '[]',
-    worker_id INTEGER,
-    FOREIGN KEY (worker_id) REFERENCES workers(id)
-  );
+    -- جدول المستخدمين: إدارة الدخول والصلاحيات للنظام
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'approved',
+      role TEXT NOT NULL DEFAULT 'user',
+      permissions TEXT NOT NULL DEFAULT '[]',
+      worker_id INTEGER,
+      FOREIGN KEY (worker_id) REFERENCES workers(id)
+    );
 
-  -- المعاملات المالية: سجل الرواتب، المكافآت، والخصومات
-  CREATE TABLE IF NOT EXISTS worker_transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    worker_id INTEGER NOT NULL,
-    type TEXT NOT NULL, -- 'salary', 'bonus', 'deduction', 'payment'
-    amount REAL NOT NULL,
-    date TEXT NOT NULL,
-    description TEXT,
-    FOREIGN KEY (worker_id) REFERENCES workers(id)
-  );
+    -- المعاملات المالية: سجل الرواتب، المكافآت، والخصومات
+    CREATE TABLE IF NOT EXISTS worker_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      worker_id INTEGER NOT NULL,
+      type TEXT NOT NULL, -- 'salary', 'bonus', 'deduction', 'payment'
+      amount REAL NOT NULL,
+      date TEXT NOT NULL,
+      description TEXT,
+      FOREIGN KEY (worker_id) REFERENCES workers(id)
+    );
 
-  -- سجل العمليات (Audit Logs): تتبع كافة العمليات الحساسة في النظام
-  CREATE TABLE IF NOT EXISTS audit_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    username TEXT,
-    action TEXT NOT NULL,
-    entity_type TEXT,
-    entity_id INTEGER,
-    details TEXT,
-    timestamp TEXT DEFAULT CURRENT_TIMESTAMP
-  );
+    -- سجل العمليات (Audit Logs): تتبع كافة العمليات الحساسة في النظام
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      username TEXT,
+      action TEXT NOT NULL,
+      entity_type TEXT,
+      entity_id INTEGER,
+      details TEXT,
+      timestamp TEXT DEFAULT CURRENT_TIMESTAMP
+    );
 
-  -- جدول الحضور والغياب: تسجيل وقت الدخول والخروج والملاحظات اليومية
-  CREATE TABLE IF NOT EXISTS attendance (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    worker_id INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    status TEXT NOT NULL,
-    check_in TEXT,
-    check_out TEXT,
-    notes TEXT,
-    FOREIGN KEY (worker_id) REFERENCES workers(id)
-  );
-  CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_worker_date ON attendance(worker_id, date);
+    -- جدول الحضور والغياب: تسجيل وقت الدخول والخروج والملاحظات اليومية
+    CREATE TABLE IF NOT EXISTS attendance (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      worker_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      status TEXT NOT NULL,
+      check_in TEXT,
+      check_out TEXT,
+      notes TEXT,
+      FOREIGN KEY (worker_id) REFERENCES workers(id)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_attendance_worker_date ON attendance(worker_id, date);
 
-  -- جدول المغادرات: تتبع خروج الموظفين أثناء الدوام الرسمي
-  CREATE TABLE IF NOT EXISTS departures (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    worker_id INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    type TEXT NOT NULL,
-    start_time TEXT NOT NULL,
-    end_time TEXT,
-    notes TEXT,
-    FOREIGN KEY (worker_id) REFERENCES workers(id)
-  );
+    -- جدول المغادرات: تتبع خروج الموظفين أثناء الدوام الرسمي
+    CREATE TABLE IF NOT EXISTS departures (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      worker_id INTEGER NOT NULL,
+      date TEXT NOT NULL,
+      type TEXT NOT NULL,
+      start_time TEXT NOT NULL,
+      end_time TEXT,
+      notes TEXT,
+      FOREIGN KEY (worker_id) REFERENCES workers(id)
+    );
 
-  -- جدول الوظائف النظامية: لتتبع تنفيذ العمليات المجدولة
-  CREATE TABLE IF NOT EXISTS system_jobs (
-    job_name TEXT PRIMARY KEY,
-    last_run_date TEXT
-  );
+    -- جدول الوظائف النظامية: لتتبع تنفيذ العمليات المجدولة
+    CREATE TABLE IF NOT EXISTS system_jobs (
+      job_name TEXT PRIMARY KEY,
+      last_run_date TEXT
+    );
 
-  -- جدول الإعدادات العامة
-  CREATE TABLE IF NOT EXISTS app_settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
-  
-  -- جدول الطبالي (الإنتاج): تسجيل الطبالي المنتجة
-  CREATE TABLE IF NOT EXISTS pallets (
-    id TEXT PRIMARY KEY, -- الكود الخاص بالطبلية
-    parent_pallet_id TEXT, -- الكود الخاص بالطبلية الأصلية (إذا كانت مشتقة)
-    type TEXT NOT NULL, -- نوع المنتج (بندورة، كاتشب، مايونيز، إلخ)
-    details TEXT,
-    status TEXT DEFAULT 'produced', -- 'produced', 'in_packaging', 'in_warehouse', 'quality_check'
-    quality_score REAL, -- نتيجة الجودة
-    measurements TEXT, -- المقاييس
-    certificate_data TEXT, -- بيانات شهادة الطبلية (JSON)
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (parent_pallet_id) REFERENCES pallets(id)
-  );
+    -- جدول الإعدادات العامة
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+    
+    -- جدول الطبالي (الإنتاج): تسجيل الطبالي المنتجة
+    CREATE TABLE IF NOT EXISTS pallets (
+      id TEXT PRIMARY KEY, -- الكود الخاص بالطبلية
+      parent_pallet_id TEXT, -- الكود الخاص بالطبلية الأصلية (إذا كانت مشتقة)
+      type TEXT NOT NULL, -- نوع المنتج (بندورة، كاتشب، مايونيز، إلخ)
+      details TEXT,
+      status TEXT DEFAULT 'produced', -- 'produced', 'in_packaging', 'in_warehouse', 'quality_check'
+      quality_score REAL, -- نتيجة الجودة
+      measurements TEXT, -- المقاييس
+      certificate_data TEXT, -- بيانات شهادة الطبلية (JSON)
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (parent_pallet_id) REFERENCES pallets(id)
+    );
 
-  -- جدول المستودع: تتبع أماكن الطبالي
-  CREATE TABLE IF NOT EXISTS warehouse_stock (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pallet_id TEXT NOT NULL,
-    location TEXT NOT NULL, -- 'internal_production', 'internal_raw_materials', 'external'
-    added_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (pallet_id) REFERENCES pallets(id)
-  );
+    -- جدول المستودع: تتبع أماكن الطبالي
+    CREATE TABLE IF NOT EXISTS warehouse_stock (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pallet_id TEXT NOT NULL,
+      location TEXT NOT NULL, -- 'internal_production', 'internal_raw_materials', 'external'
+      added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (pallet_id) REFERENCES pallets(id)
+    );
 
-  -- جدول طلبات المستودع
-  CREATE TABLE IF NOT EXISTS warehouse_requests (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pallet_id TEXT NOT NULL,
-    status TEXT DEFAULT 'pending', -- 'pending', 'completed'
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (pallet_id) REFERENCES pallets(id)
-  );
+    -- جدول طلبات المستودع
+    CREATE TABLE IF NOT EXISTS warehouse_requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pallet_id TEXT NOT NULL,
+      status TEXT DEFAULT 'pending', -- 'pending', 'completed'
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (pallet_id) REFERENCES pallets(id)
+    );
 
-  -- جدول سجلات الشحن
-  CREATE TABLE IF NOT EXISTS shipping_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pallet_id TEXT NOT NULL,
-    shipping_date TEXT,
-    destination TEXT,
-    driver_name TEXT,
-    truck_number TEXT,
-    notes TEXT,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (pallet_id) REFERENCES pallets(id)
-  );
-  
-  -- جدول الطلبيات
-  CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    zone_name TEXT NOT NULL,
-    country TEXT NOT NULL,
-    item_name TEXT NOT NULL,
-    quantity INTEGER NOT NULL,
-    weight REAL NOT NULL,
-    order_number TEXT NOT NULL UNIQUE,
-    general_specs TEXT,
-    status TEXT DEFAULT 'pending',
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-  );
-  
-  -- إدراج القيم الافتراضية للإعدادات إذا لم تكن موجودة
-  INSERT OR IGNORE INTO app_settings (key, value) VALUES 
-    ('official_start_time', '08:00'),
-    ('official_end_time', '16:00'),
-    ('break_start_time', '12:00'),
-    ('break_end_time', '12:30'),
-    ('has_break', '1'),
-    ('overtime_rate', '1.25');
-`);
+    -- جدول سجلات الشحن
+    CREATE TABLE IF NOT EXISTS shipping_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pallet_id TEXT NOT NULL,
+      shipping_date TEXT,
+      destination TEXT,
+      driver_name TEXT,
+      truck_number TEXT,
+      notes TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (pallet_id) REFERENCES pallets(id)
+    );
+    
+    -- جدول الطلبيات
+    CREATE TABLE IF NOT EXISTS orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      zone_name TEXT NOT NULL,
+      country TEXT NOT NULL,
+      item_name TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      weight REAL NOT NULL,
+      order_number TEXT NOT NULL UNIQUE,
+      general_specs TEXT,
+      status TEXT DEFAULT 'pending',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- إدراج القيم الافتراضية للإعدادات إذا لم تكن موجودة
+    INSERT OR IGNORE INTO app_settings (key, value) VALUES 
+      ('official_start_time', '08:00'),
+      ('official_end_time', '16:00'),
+      ('break_start_time', '12:00'),
+      ('break_end_time', '12:30'),
+      ('has_break', '1'),
+      ('overtime_rate', '1.25');
+  `);
+  consoleLog("Database tables initialized successfully.");
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+  consoleLog("Tables in database: " + JSON.stringify(tables));
+} catch (e) {
+  consoleLog("Database initialization failed: " + e);
+}
 
 // Add columns if they don't exist (for existing databases)
 try { db.exec("ALTER TABLE workers ADD COLUMN national_id TEXT"); } catch (e) {}
@@ -287,32 +301,32 @@ function applyMonthlySocialSecurity() {
 // applyMonthlySocialSecurity();
 
 // Create default admin if not exists
-// const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
-// const hashedAdmin = bcrypt.hashSync("Durra@2026", 10);
-// 
-// if (!adminExists) {
-//   db.prepare("INSERT INTO users (username, email, password, status, role, permissions) VALUES (?, ?, ?, ?, ?, ?)").run(
-//     "admin", 
-//     "admin@example.com",
-//     hashedAdmin, 
-//     "approved", 
-//     "admin", 
-//     JSON.stringify(["manage_workers", "manage_tasks", "add_evaluation", "edit_evaluation", "delete_evaluation", "view_evaluations", "view_reports", "manage_users", "view_audit_logs"])
-//   );
-// } else {
-//   // Force update password and email to a stronger one to avoid browser warnings
-//   db.prepare("UPDATE users SET password = ?, email = ? WHERE username = 'admin'").run(hashedAdmin, "admin@example.com");
-//   
-//   // Update admin permissions to include view_audit_logs if missing
-//   try {
-//     const adminUser = adminExists as any;
-//     const perms = JSON.parse(adminUser.permissions || '[]');
-//     if (!perms.includes('view_audit_logs')) {
-//       perms.push('view_audit_logs');
-//       db.prepare("UPDATE users SET permissions = ? WHERE id = ?").run(JSON.stringify(perms), adminUser.id);
-//     }
-//   } catch (e) {}
-// }
+const adminExists = db.prepare("SELECT * FROM users WHERE username = 'admin'").get();
+const hashedAdmin = bcrypt.hashSync("Durra@2026", 10);
+
+if (!adminExists) {
+  db.prepare("INSERT INTO users (username, email, password, status, role, permissions) VALUES (?, ?, ?, ?, ?, ?)").run(
+    "admin", 
+    "admin@example.com",
+    hashedAdmin, 
+    "approved", 
+    "admin", 
+    JSON.stringify(["manage_workers", "manage_tasks", "add_evaluation", "edit_evaluation", "delete_evaluation", "view_evaluations", "view_reports", "manage_users", "view_audit_logs"])
+  );
+} else {
+  // Force update password and email to a stronger one to avoid browser warnings
+  db.prepare("UPDATE users SET password = ?, email = ? WHERE username = 'admin'").run(hashedAdmin, "admin@example.com");
+  
+  // Update admin permissions to include view_audit_logs if missing
+  try {
+    const adminUser = adminExists as any;
+    const perms = JSON.parse(adminUser.permissions || '[]');
+    if (!perms.includes('view_audit_logs')) {
+      perms.push('view_audit_logs');
+      db.prepare("UPDATE users SET permissions = ? WHERE id = ?").run(JSON.stringify(perms), adminUser.id);
+    }
+  } catch (e) {}
+}
 
 // Helper for logging
 const logAction = (req: any, action: string, entityType?: string, entityId?: number, details?: string) => {
@@ -435,6 +449,14 @@ async function startServer() {
   app.use(express.json());
 
   // --- API Routes ---
+  app.get("/api/debug/tables", (req, res) => {
+    try {
+      const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
+      res.json({ tables });
+    } catch (e) {
+      res.status(500).json({ error: String(e) });
+    }
+  });
 
   app.get("/api/debug/permissions", authenticateToken, (req, res) => {
     const user = db.prepare("SELECT permissions FROM users WHERE id = ?").get((req as any).user.id) as any;

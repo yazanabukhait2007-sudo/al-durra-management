@@ -211,12 +211,7 @@ export default function ProductionManagement() {
                       <td className="p-4">{certData.item_name || '-'}</td>
                       <td className="p-4">{certData.production_date || '-'}</td>
                       <td className="p-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          pallet.status === 'produced' ? 'bg-blue-100 text-blue-800' :
-                          pallet.status === 'in_packaging' ? 'bg-purple-100 text-purple-800' :
-                          pallet.status === 'in_warehouse' ? 'bg-emerald-100 text-emerald-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${ pallet.status === 'produced' ? 'bg-blue-100 text-blue-800' : pallet.status === 'in_packaging' ? 'bg-purple-100 text-purple-800' : pallet.status === 'in_warehouse' ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-800' }`}>
                           {pallet.status === 'produced' ? 'تم الإنتاج - بانتظار فحص الجودة' :
                            pallet.status === 'in_packaging' ? 'في التغليف' :
                            pallet.status === 'in_warehouse' ? 'تم التخزين في المستودع النهائي' :

@@ -386,21 +386,13 @@ const WarehousePage = () => {
       <div className="flex gap-4 border-b border-gray-200">
         <button
           onClick={() => setActiveMainTab('internal')}
-          className={`pb-4 px-4 font-bold transition-colors ${
-            activeMainTab === 'internal' 
-              ? 'text-blue-600 border-b-2 border-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
+          className={`pb-4 px-4 font-bold transition-colors ${ activeMainTab === 'internal' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700' }`}
         >
           المستودع الداخلي
         </button>
         <button
           onClick={() => setActiveMainTab('external')}
-          className={`pb-4 px-4 font-bold transition-colors ${
-            activeMainTab === 'external' 
-              ? 'text-blue-600 border-b-2 border-blue-600' 
-              : 'text-gray-500 hover:text-gray-700'
-          }`}
+          className={`pb-4 px-4 font-bold transition-colors ${ activeMainTab === 'external' ? 'text-blue-600 border-b-2 border-blue-600' : 'text-gray-500 hover:text-gray-700' }`}
         >
           التصدير
         </button>
@@ -542,9 +534,7 @@ const WarehousePage = () => {
                                       <td className="p-3 text-sm text-gray-600">{pallet._details.production_date || new Date(pallet.added_at).toLocaleDateString('ar-EG')}</td>
                                       <td className="p-3 text-sm text-gray-600">{pallet._details.expiry_date || '-'}</td>
                                       <td className="p-3">
-                                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${
-                                          pallet.location === 'internal_production' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
-                                        }`}>
+                                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${ pallet.location === 'internal_production' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700' }`}>
                                           {translateLocation(pallet.location)}
                                         </span>
                                       </td>
@@ -1630,11 +1620,7 @@ const WarehousePage = () => {
                             }
                           });
                         }}
-                        className={`p-3 rounded-xl border-2 transition-all text-center flex flex-col items-center gap-1 ${
-                          (certData.signatures as any)[sig.id].signed 
-                            ? "bg-green-50 border-green-500 text-green-700" 
-                            : "bg-gray-50 border-gray-200 border-dashed text-gray-400 hover:border-gray-300"
-                        }`}
+                        className={`p-3 rounded-xl border-2 transition-all text-center flex flex-col items-center gap-1 ${ (certData.signatures as any)[sig.id].signed ? "bg-green-50 border-green-500 text-green-700" : "bg-gray-50 border-gray-200 border-dashed text-gray-400 hover:border-gray-300" }`}
                       >
                         <span className="text-[10px] font-bold uppercase">{sig.label}</span>
                         {(certData.signatures as any)[sig.id].signed ? (

@@ -192,11 +192,11 @@ export default function Attendance() {
     <div dir="rtl" className="space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
             <Clock className="w-8 h-8 text-durra-green" />
             سجل الحضور والمغادرات
           </h1>
-          <p className="text-gray-500 dark:text-gray-400 mt-1">إدارة دوام الموظفين والمغادرات اليومية</p>
+          <p className="text-gray-500 mt-1">إدارة دوام الموظفين والمغادرات اليومية</p>
         </div>
         
         <div className="w-full md:w-64">
@@ -208,14 +208,10 @@ export default function Attendance() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+      <div className="flex gap-2 border-b border-gray-200">
         <button
           onClick={() => setActiveTab('attendance')}
-          className={`px-6 py-3 font-medium text-sm transition-all relative ${
-            activeTab === 'attendance' 
-              ? 'text-durra-green' 
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-          }`}
+          className={`px-6 py-3 font-medium text-sm transition-all relative ${ activeTab === 'attendance' ? 'text-durra-green' : 'text-gray-500 hover:text-gray-700 ' }`}
         >
           سجل الحضور
           {activeTab === 'attendance' && (
@@ -224,11 +220,7 @@ export default function Attendance() {
         </button>
         <button
           onClick={() => setActiveTab('report')}
-          className={`px-6 py-3 font-medium text-sm transition-all relative ${
-            activeTab === 'report' 
-              ? 'text-durra-green' 
-              : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-          }`}
+          className={`px-6 py-3 font-medium text-sm transition-all relative ${ activeTab === 'report' ? 'text-durra-green' : 'text-gray-500 hover:text-gray-700 ' }`}
         >
           كشف الحضور
           {activeTab === 'report' && (
@@ -238,7 +230,7 @@ export default function Attendance() {
       </div>
 
       {/* Content */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden min-h-[400px]">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden min-h-[400px]">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-durra-green"></div>
@@ -260,20 +252,20 @@ export default function Attendance() {
             )}
             <div className="overflow-x-auto">
               <table className="w-full text-right">
-                <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+                <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 w-1/4">الموظف</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 w-1/4">الحالة</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 w-1/6">وقت الحضور</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 w-1/6">وقت الانصراف</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">ملاحظات</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 w-16"></th>
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-1/4">الموظف</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-1/4">الحالة</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-1/6">وقت الحضور</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-1/6">وقت الانصراف</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-600">ملاحظات</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-16"></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              <tbody className="divide-y divide-gray-100">
                 {attendanceRecords.map((record) => (
-                  <tr key={record.worker_id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group">
-                    <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                  <tr key={record.worker_id} className="hover:bg-gray-50 transition-colors group">
+                    <td className="px-6 py-4 font-medium text-gray-900">
                       {record.worker_name}
                     </td>
                     <td className="px-6 py-4">
@@ -286,10 +278,7 @@ export default function Attendance() {
                         ].filter(option => option.value === record.status).map((option) => (
                           <div
                             key={option.value}
-                            className={`
-                              px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-default
-                              ${option.color} shadow-sm
-                            `}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-default ${option.color} shadow-sm`}
                           >
                             {option.label}
                           </div>
@@ -297,17 +286,17 @@ export default function Attendance() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm font-mono text-gray-700 dark:text-gray-300">
+                      <span className="text-sm font-mono text-gray-700">
                         {record.check_in || '-'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm font-mono text-gray-700 dark:text-gray-300">
+                      <span className="text-sm font-mono text-gray-700">
                         {record.check_out || '-'}
                       </span>
                     </td>
                     <td className="px-6 py-4 max-w-xs">
-                      <span className="text-sm text-gray-600 dark:text-gray-400 block whitespace-pre-wrap">
+                      <span className="text-sm text-gray-600 block whitespace-pre-wrap">
                         {record.notes || '-'}
                       </span>
                     </td>
@@ -326,13 +315,13 @@ export default function Attendance() {
       {/* Add Attendance Modal */}
       {showAttendanceModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 p-4 pt-10">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl shadow-xl animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
-            <div className="p-6 border-b border-gray-100 dark:border-gray-700 rounded-t-2xl bg-white dark:bg-gray-800">
+          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-xl animate-in fade-in zoom-in duration-200 flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-gray-100 rounded-t-2xl bg-white">
               <div className="flex items-center justify-between">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">تسجيل الحضور اليومي - {format(new Date(selectedDate), "EEEE d MMMM", { locale: arSA })}</h3>
+                <h3 className="text-xl font-bold text-gray-900">تسجيل الحضور اليومي - {format(new Date(selectedDate), "EEEE d MMMM", { locale: arSA })}</h3>
                 <button 
                   onClick={() => setShowAttendanceModal(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -345,16 +334,16 @@ export default function Attendance() {
                   {workers.map(worker => {
                     const data = bulkAttendance[worker.id] || { status: 'present', check_in: '', check_out: '', notes: '' };
                     return (
-                      <div key={worker.id} className="bg-gray-50 dark:bg-gray-700/30 p-4 rounded-xl border border-gray-100 dark:border-gray-700">
+                      <div key={worker.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                         <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
                           <div className="w-full lg:w-1/4">
-                            <h4 className="font-bold text-gray-900 dark:text-white">{worker.name}</h4>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">{worker.role}</p>
+                            <h4 className="font-bold text-gray-900">{worker.name}</h4>
+                            <p className="text-xs text-gray-500">{worker.current_job}</p>
                           </div>
 
                           <div className="flex-1 w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                             {/* Status */}
-                            <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-600">
+                            <div className="flex bg-white rounded-lg p-1 border border-gray-200">
                               {[
                                 { value: 'present', label: 'حاضر' },
                                 { value: 'absent', label: 'غائب' },
@@ -363,13 +352,7 @@ export default function Attendance() {
                                   key={status.value}
                                   type="button"
                                   onClick={() => handleBulkChange(worker.id, 'status', status.value)}
-                                  className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                                    data.status === status.value
-                                      ? status.value === 'present' 
-                                        ? 'bg-green-100 text-green-700 shadow-sm' 
-                                        : 'bg-red-100 text-red-700 shadow-sm'
-                                      : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
-                                  }`}
+                                  className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${ data.status === status.value ? status.value === 'present' ? 'bg-green-100 text-green-700 shadow-sm' : 'bg-red-100 text-red-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50 ' }`}
                                 >
                                   {status.label}
                                 </button>
@@ -400,7 +383,7 @@ export default function Attendance() {
                                 type="text"
                                 value={data.notes}
                                 onChange={(e) => handleBulkChange(worker.id, 'notes', e.target.value)}
-                                className="w-full px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:border-durra-green outline-none"
+                                className="w-full px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:border-durra-green outline-none"
                                 placeholder="ملاحظات..."
                               />
                             </div>
@@ -431,7 +414,7 @@ export default function Attendance() {
                     <button
                       type="button"
                       onClick={() => setShowAttendanceModal(false)}
-                      className="px-6 py-3 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium"
+                      className="px-6 py-3 bg-white text-gray-700 rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors font-medium"
                     >
                       إلغاء
                     </button>

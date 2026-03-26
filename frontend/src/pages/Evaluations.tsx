@@ -80,7 +80,7 @@ export default function Evaluations() {
     <div dir="rtl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">التقييمات اليومية</h1>
+          <h1 className="text-2xl font-bold text-gray-900">التقييمات اليومية</h1>
           <Logo className="scale-75 origin-right hidden sm:flex" />
         </div>
         {canAdd && (
@@ -94,49 +94,49 @@ export default function Evaluations() {
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-8 flex flex-col sm:flex-row gap-4 items-end">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 flex flex-col sm:flex-row gap-4 items-end">
         <div className="flex-1 w-full">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             تصفية حسب الشهر
           </label>
           <MonthPicker value={month} onChange={setMonth} />
         </div>
         <button
           onClick={fetchEvaluations}
-          className="bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-6 py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center gap-2 transition-colors w-full sm:w-auto justify-center font-medium"
+          className="bg-gray-100 text-gray-700 px-6 py-3 rounded-xl hover:bg-gray-200 flex items-center gap-2 transition-colors w-full sm:w-auto justify-center font-medium"
         >
           <Search className="w-5 h-5" />
           بحث
         </button>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-right">
-          <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+          <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">التاريخ</th>
-              <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">العامل</th>
+              <th className="px-6 py-4 text-sm font-semibold text-gray-600">التاريخ</th>
+              <th className="px-6 py-4 text-sm font-semibold text-gray-600">العامل</th>
               {(canEdit || canDelete || canViewLogs) && (
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 w-32">إجراء</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-32">إجراء</th>
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+          <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={3} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">جاري التحميل...</td>
+                <td colSpan={3} className="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
               </tr>
             ) : evaluations.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">لا يوجد تقييمات مسجلة في هذا الشهر</td>
+                <td colSpan={3} className="px-6 py-8 text-center text-gray-500">لا يوجد تقييمات مسجلة في هذا الشهر</td>
               </tr>
             ) : (
               evaluations.map((evaluation) => (
-                <tr key={evaluation.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium">
+                <tr key={evaluation.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 text-sm text-gray-900 font-medium">
                     {evaluation.date}
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-900 dark:text-white">
+                  <td className="px-6 py-4 text-sm text-gray-900">
                     {evaluation.worker_name}
                   </td>
                   {(canEdit || canDelete || canViewLogs) && (
@@ -153,7 +153,7 @@ export default function Evaluations() {
                                 date: evaluation.date 
                               } 
                             })}
-                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                            className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
                             title="عرض سجل العمل"
                           >
                             <Eye className="w-5 h-5" />
@@ -162,7 +162,7 @@ export default function Evaluations() {
                         {canEdit && (
                           <button
                             onClick={() => navigate(`/evaluations/edit/${evaluation.id}`)}
-                            className="text-durra-green hover:text-durra-green-light dark:text-durra-green-light dark:hover:text-durra-green p-2 rounded-lg hover:bg-durra-green/10 dark:hover:bg-durra-green/20 transition-colors"
+                            className="text-durra-green hover:text-durra-green-light p-2 rounded-lg hover:bg-durra-green/10 transition-colors"
                             title="تعديل"
                           >
                             <Edit className="w-5 h-5" />
@@ -171,7 +171,7 @@ export default function Evaluations() {
                         {canDelete && (
                           <button
                             onClick={() => confirmDelete(evaluation.id)}
-                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            className="text-red-500 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors"
                             title="حذف"
                           >
                             <Trash2 className="w-5 h-5" />

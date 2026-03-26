@@ -242,11 +242,11 @@ export default function Workers() {
   return (
     <div dir="rtl">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">إدارة العمال (السيرة الذاتية)</h1>
+        <h1 className="text-2xl font-bold text-gray-900">إدارة العمال (السيرة الذاتية)</h1>
         <Logo className="scale-75 origin-left hidden sm:flex" />
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 mb-8 flex flex-col sm:flex-row gap-4 justify-between items-center">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8 flex flex-col sm:flex-row gap-4 justify-between items-center">
         <div className="relative w-full sm:w-96">
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
             <Search className="h-5 w-5 text-gray-400" />
@@ -256,7 +256,7 @@ export default function Workers() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="بحث باسم العامل، الهاتف، أو العمل الحالي..."
-            className="w-full pr-10 pl-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
+            className="w-full pr-10 pl-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none"
           />
         </div>
         {canAdd && (
@@ -270,42 +270,42 @@ export default function Workers() {
         )}
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-right whitespace-nowrap">
-            <thead className="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
+            <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">الاسم</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">رقم الهاتف</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">العمل الحالي</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">الراتب</th>
-                <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300">الضمان</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">الاسم</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">رقم الهاتف</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">العمل الحالي</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">الراتب</th>
+                <th className="px-6 py-4 text-sm font-semibold text-gray-600">الضمان</th>
                 {(canEdit || canDelete) && (
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 dark:text-gray-300 w-32 text-center">إجراءات</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-32 text-center">إجراءات</th>
                 )}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+            <tbody className="divide-y divide-gray-100">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">جاري التحميل...</td>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">جاري التحميل...</td>
                 </tr>
               ) : filteredWorkers.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">لا يوجد عمال مطابقين للبحث</td>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">لا يوجد عمال مطابقين للبحث</td>
                 </tr>
               ) : (
                 filteredWorkers.map((worker) => (
-                  <tr key={worker.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-gray-900 dark:text-white font-medium">{worker.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300" dir="ltr">{worker.phone || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">{worker.current_job || '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">{worker.salary ? `${worker.salary} دينار` : '-'}</td>
-                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">
+                  <tr key={worker.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 text-sm text-gray-900 font-medium">{worker.name}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600" dir="ltr">{worker.phone || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{worker.current_job || '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">{worker.salary ? `${worker.salary} دينار` : '-'}</td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
                       {worker.has_social_security ? (
-                        <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full text-xs">مشمول</span>
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">مشمول</span>
                       ) : (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-full text-xs">غير مشمول</span>
+                        <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">غير مشمول</span>
                       )}
                     </td>
                     {(canEdit || canDelete || canViewDetails) && (
@@ -322,7 +322,7 @@ export default function Workers() {
                         {canEdit && (
                           <button
                             onClick={() => handleOpenModal(worker)}
-                            className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                            className="text-blue-500 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
                             title="تعديل / عرض التفاصيل"
                           >
                             <Edit className="w-5 h-5" />
@@ -345,16 +345,16 @@ export default function Workers() {
           onClick={handleCloseModal}
         >
           <div 
-            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
+            className="bg-white rounded-2xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-700">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100">
+              <h2 className="text-xl font-bold text-gray-900">
                 {viewOnly ? "تفاصيل العامل" : (editingWorker ? "تعديل بيانات العامل" : "إضافة عامل جديد")}
               </h2>
               <button
                 onClick={handleCloseModal}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -365,7 +365,7 @@ export default function Workers() {
                 
                 {/* Name */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الاسم الرباعي *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">الاسم الرباعي *</label>
                   <div className="relative">
                     <input
                       type="text"
@@ -373,109 +373,103 @@ export default function Workers() {
                       value={formData.name || ""}
                       disabled={viewOnly}
                       onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${
-                        viewOnly ? 'opacity-70 cursor-not-allowed' : ''
-                      } ${
-                        showErrors && !formData.name?.trim() 
-                          ? "border-red-500" 
-                          : "border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
-                      }`}
+                      className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${ viewOnly ? 'opacity-70 cursor-not-allowed' : '' } ${ showErrors && !formData.name?.trim() ? "border-red-500" : "border-gray-300 " }`}
                     />
                     {showErrors && !formData.name?.trim() && (
-                      <ValidationTooltip />
+                      <ValidationTooltip message="يجب إدخال الاسم الرباعي" />
                     )}
                   </div>
                 </div>
 
                 {/* Phones */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">رقم الهاتف</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">رقم الهاتف</label>
                   <input
                     type="text"
                     dir="ltr"
                     value={formData.phone || ""}
                     disabled={viewOnly}
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none text-right ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none text-right ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">رقم هاتف بديل</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">رقم هاتف بديل</label>
                   <input
                     type="text"
                     dir="ltr"
                     value={formData.alt_phone || ""}
                     disabled={viewOnly}
                     onChange={(e) => setFormData({...formData, alt_phone: e.target.value})}
-                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none text-right ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none text-right ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
                 </div>
 
                 {/* Address */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">مكان السكن</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">مكان السكن</label>
                   <input
                     type="text"
                     value={formData.address || ""}
                     disabled={viewOnly}
                     onChange={(e) => setFormData({...formData, address: e.target.value})}
-                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
                 </div>
 
                 {/* National ID */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الرقم الوطني</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">الرقم الوطني</label>
                   <input
                     type="text"
                     dir="ltr"
                     value={formData.national_id || ""}
                     disabled={viewOnly}
                     onChange={(e) => setFormData({...formData, national_id: e.target.value})}
-                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none text-right ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none text-right ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
                 </div>
 
                 {/* Age */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">العمر</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">العمر</label>
                   <input
                     type="number"
                     min="0"
                     value={formData.age ?? ""}
                     disabled={viewOnly}
                     onChange={(e) => setFormData({...formData, age: parseInt(e.target.value) || undefined})}
-                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
                 </div>
 
                 {/* Last Workplace */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">آخر مكان عمل</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">آخر مكان عمل</label>
                   <input
                     type="text"
                     value={formData.last_workplace || ""}
                     disabled={viewOnly}
                     onChange={(e) => setFormData({...formData, last_workplace: e.target.value})}
-                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
                 </div>
 
                 {/* Current Job */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">عمله الحالي داخل المصنع</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">عمله الحالي داخل المصنع</label>
                   <input
                     type="text"
                     value={formData.current_job || ""}
                     disabled={viewOnly}
                     onChange={(e) => setFormData({...formData, current_job: e.target.value})}
-                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
                 </div>
 
                 {/* Salary */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">الراتب (دينار)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">الراتب (دينار)</label>
                   <input
                     type="number"
                     min="0"
@@ -483,12 +477,12 @@ export default function Workers() {
                     value={formData.salary ?? ""}
                     disabled={viewOnly}
                     onChange={(e) => setFormData({...formData, salary: parseFloat(e.target.value) || 0})}
-                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                   />
                 </div>
 
                 {/* Social Security */}
-                <div className="md:col-span-2 flex flex-col gap-4 p-4 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700">
+                <div className="md:col-span-2 flex flex-col gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <div className="flex items-center gap-3">
                     <input
                       type="checkbox"
@@ -496,16 +490,16 @@ export default function Workers() {
                       checked={!!formData.has_social_security}
                       disabled={viewOnly}
                       onChange={(e) => setFormData({...formData, has_social_security: e.target.checked ? 1 : 0})}
-                      className={`w-5 h-5 text-durra-green focus:ring-durra-green border-gray-300 dark:border-gray-600 rounded ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                      className={`w-5 h-5 text-durra-green focus:ring-durra-green border-gray-300 rounded ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                     />
-                    <label htmlFor="social_security" className="text-sm font-bold text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <label htmlFor="social_security" className="text-sm font-bold text-gray-700 cursor-pointer">
                       مشمول في الضمان الاجتماعي
                     </label>
                   </div>
                   
                   {!!formData.has_social_security && (
                     <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">قيمة اقتطاع الضمان الشهري (دينار)</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">قيمة اقتطاع الضمان الشهري (دينار)</label>
                       <input
                         type="number"
                         min="0"
@@ -513,23 +507,23 @@ export default function Workers() {
                         value={formData.social_security_amount ?? ""}
                         disabled={viewOnly}
                         onChange={(e) => setFormData({...formData, social_security_amount: parseFloat(e.target.value) || 0})}
-                        className={`w-full max-w-xs px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                        className={`w-full max-w-xs px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                         placeholder="أدخل المبلغ الذي سيخصم شهرياً..."
                       />
-                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">سيتم خصم هذا المبلغ تلقائياً في بداية كل شهر من كشف حساب العامل.</p>
+                      <p className="mt-1 text-xs text-gray-500">سيتم خصم هذا المبلغ تلقائياً في بداية كل شهر من كشف حساب العامل.</p>
                     </div>
                   )}
                 </div>
 
                 {/* Notes */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ملاحظات</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ملاحظات</label>
                   <textarea
                     rows={3}
                     value={formData.notes || ""}
                     disabled={viewOnly}
                     onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none resize-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
+                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green focus:border-durra-green outline-none resize-none ${viewOnly ? 'opacity-70 cursor-not-allowed' : ''}`}
                     placeholder="أدخل أي ملاحظات إضافية عن العامل..."
                   />
                 </div>
@@ -537,13 +531,13 @@ export default function Workers() {
               </form>
             </div>
             
-            <div className="p-6 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50 flex justify-between items-center flex-wrap gap-4">
+            <div className="p-6 border-t border-gray-100 bg-gray-50 flex justify-between items-center flex-wrap gap-4">
               <div className="flex gap-2">
                 {editingWorker && canDelete && !viewOnly && (
                   <button
                     type="button"
                     onClick={() => confirmDelete(editingWorker.id, editingWorker.name)}
-                    className="px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30 rounded-xl transition-colors flex items-center gap-2 font-medium"
+                    className="px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl transition-colors flex items-center gap-2 font-medium"
                   >
                     <Trash2 className="w-4 h-4" />
                     حذف
@@ -553,7 +547,7 @@ export default function Workers() {
                   <button
                     type="button"
                     onClick={() => openAccountModal(editingWorker.id, editingWorker.name)}
-                    className="px-4 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:hover:bg-blue-900/30 rounded-xl transition-colors flex items-center gap-2 font-medium"
+                    className="px-4 py-2 text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors flex items-center gap-2 font-medium"
                   >
                     <UserPlus className="w-4 h-4" />
                     حساب دخول
@@ -564,7 +558,7 @@ export default function Workers() {
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="px-6 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-100 transition-colors"
                 >
                   {viewOnly ? "إغلاق" : "إلغاء"}
                 </button>
@@ -586,11 +580,11 @@ export default function Workers() {
       {/* Create/Edit Account Modal */}
       {createAccountModal.isOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" onClick={() => setCreateAccountModal({ ...createAccountModal, isOpen: false })}>
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-            <h3 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4 text-gray-900">
               {createAccountModal.isEdit ? "تعديل حساب العامل" : "إنشاء حساب دخول للعامل"}
             </h3>
-            <p className="mb-4 text-gray-600 dark:text-gray-400">
+            <p className="mb-4 text-gray-600">
               {createAccountModal.isEdit 
                 ? `تعديل بيانات الدخول للموظف "${createAccountModal.workerName}".`
                 : `سيتم إنشاء حساب للموظف "${createAccountModal.workerName}" بصلاحية "عامل" فقط.`
@@ -598,34 +592,34 @@ export default function Workers() {
             </p>
             
             {createAccountModal.isEdit && createAccountModal.lastPasswordUpdate && (
-              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg text-sm">
+              <div className="mb-4 p-3 bg-blue-50 text-blue-700 rounded-lg text-sm">
                 آخر تحديث لكلمة المرور: {new Date(createAccountModal.lastPasswordUpdate).toLocaleString('ar-JO')}
               </div>
             )}
             
             <form onSubmit={handleCreateAccount} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">اسم المستخدم</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">اسم المستخدم</label>
                 <input
                   type="text"
                   required
                   value={accountForm.username}
                   onChange={e => setAccountForm({...accountForm, username: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-durra-green outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">البريد الإلكتروني</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">البريد الإلكتروني</label>
                 <input
                   type="email"
                   required
                   value={accountForm.email}
                   onChange={e => setAccountForm({...accountForm, email: e.target.value})}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-durra-green outline-none"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green outline-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   كلمة المرور {createAccountModal.isEdit && <span className="text-xs text-gray-500 font-normal">(اتركها فارغة للإبقاء على الحالية)</span>}
                 </label>
                 <div className="relative">
@@ -634,13 +628,13 @@ export default function Workers() {
                     required={!createAccountModal.isEdit}
                     value={accountForm.password}
                     onChange={e => setAccountForm({...accountForm, password: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-2 focus:ring-durra-green outline-none"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-durra-green outline-none"
                     placeholder={createAccountModal.isEdit ? "••••••••" : ""}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
@@ -652,7 +646,7 @@ export default function Workers() {
                 <button
                   type="button"
                   onClick={() => setCreateAccountModal({ ...createAccountModal, isOpen: false })}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg dark:text-gray-300 dark:hover:bg-gray-700"
+                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
                 >
                   إلغاء
                 </button>
